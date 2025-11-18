@@ -1,0 +1,153 @@
+import React, { useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+export default function LoginScreen() {
+  const [userId, setUserId] = useState('');
+  const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  
+
+  const handleLogin = () => {
+    if (!agreed) {
+      Alert.alert('利用規約', '利用規約に同意してください');
+      return;
+    }
+    Alert.alert('ログイン情報', `ユーザーID: ${userId}\nパスワード: ${password}`);
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* ①題名 */}
+      <Text style={styles.title}>新規登録</Text>
+
+      {/* ②ユーザーID */}
+      <TextInput
+        style={styles.input}
+        placeholder="ユーザーID"
+        value={userId}
+        onChangeText={setUserId}
+      />
+
+      {/* ③パスワード */}
+      <TextInput
+        style={styles.input}
+        placeholder="パスワード"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+
+      {/* 利用規約チェック（ここにSwitchを置く） */}
+    <View style={styles.termsContainer}>
+      <Switch
+        value={agreed}
+        onValueChange={setAgreed}
+        trackColor={{ true: '#007AFF', false: '#ccc' }}
+      thumbColor={'#fff'}
+  />
+    <TouchableOpacity onPress={() => setModalVisible(true)}>
+      <Text style={styles.linkText}>利用規約・プライバシーポリシーを見る</Text>
+    </TouchableOpacity>
+    </View>
+
+      {/* 登録ボタン */}
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>登録</Text>
+      </TouchableOpacity>
+
+
+      {/* モーダル */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ScrollView>
+              <Text style={styles.modalTitle}>利用規約</Text>
+              <Text style={styles.modalText}>
+                第1条（適用）{'\n'}
+                1.本規約は、ユーザーと当社との間の本アプリの利用に関する一切の関係に適用されます。{'\n'}
+                2.当社は本規約を随時変更できるものとし、変更後の規約は本アプリ上に表示された時点から効力を生じます。{'\n'}
+                {'\n'}
+                第2条（利用登録）{'\n'}
+                1.本アプリの利用希望者は、当社の定める方法により利用登録を行うものとします。{'\n'}
+                2.利用登録の申請に対し、当社が承認した時点で利用契約が成立します。{'\n'}
+                3.当社は、利用登録の申請を承認しない場合があります。その理由については開示しません。{'\n'}
+                {'\n'}
+                第3条（ユーザーの責任）{'\n'}
+                1.ユーザーは自己の責任において本アプリを利用するものとします。{'\n'}
+                2.ユーザーは、以下の行為を行ってはなりません。{'\n'}
+                  ・法令または公序良俗に反する行為{'\n'}
+                  ・他のユーザー、第三者、当社に損害を与える行為{'\n'}
+                  ・本アプリの運営を妨げる行為{'\n'}
+                  ・不正アクセスやデータ改ざん等の不正行為{'\n'}
+                {'\n'}
+                第4条（知的財産権）{'\n'}
+                1.本アプリに関する著作権、商標権、特許権その他の知的財産権はすべて当社または当社にライセンスを許諾した第三者に帰属します。{'\n'}
+                2.ユーザーは本アプリを個人的に利用する範囲内でのみ使用でき、無断で複製・配布・商用利用することはできません。{'\n'}
+                {'\n'}
+                第5条（禁止事項）{'\n'}
+                ユーザーは、以下の行為を行ってはなりません。{'\n'}
+                1.本アプリの改変、リバースエンジニアリング{'\n'}
+                2.ウイルスや有害なプログラムの送信{'\n'}
+                3.他のユーザーの個人情報の収集・利用{'\n'}
+                4.本アプリを営利目的で利用すること{'\n'}
+                {'\n'}
+                第6条（本アプリの提供の停止等）{'\n'}
+                1.当社は、以下の場合にユーザーへの事前通知なく本アプリの提供を停止または中断することがあります。{'\n'}
+                  ・本アプリの保守・更新を行う場合{'\n'}
+                  ・火災、停電、天災地変などやむを得ない事由がある場合{'\n'}
+                2.当社は、本条に基づく停止・中断によりユーザーまたは第三者に生じた損害について、一切責任を負いません。{'\n'}
+                {'\n'}
+                第7条（免責事項）{'\n'}
+                1.当社は、本アプリに関して、その完全性、正確性、最新性、特定目的適合性等について一切保証しません。{'\n'}
+                2.ユーザーが本アプリを利用したことにより生じた損害について、当社は一切責任を負いません。{'\n'}
+                {'\n'}
+                第8条（利用規約の変更）{'\n'}
+                当社は、必要に応じて本規約を変更することができ、変更後の規約は本アプリ上に掲示された時点で効力を生じます。ユーザーは変更後も本アプリを利用した時点で、変更に同意したものとみなされます。{'\n'}
+                {'\n'}
+                第9条（準拠法・管轄）{'\n'}
+                1.本規約の解釈にあたっては、日本法を準拠法とします。{'\n'}
+                2.本アプリに関して紛争が生じた場合、当社所在地の管轄裁判所を第一審の専属的合意管轄裁判所とします。{'\n'}
+                {'\n'}
+                第10条（未成年者の利用）{'\n'}
+                1.ユーザーが未成年者（日本法上18歳未満を指します）の場合、本アプリを利用するにあたって、必ず親権者その他の法定代理人の同意を得るものとします。{'\n'}
+                2.未成年者のユーザーが本アプリを利用した場合、当社は、親権者等の同意を得たうえでの利用であるとみなします。{'\n'}
+                3.未成年者が親権者等の同意を得ずに本アプリを利用し、または虚偽の申告を行った場合でも、当社は一切の責任を負いません。{'\n'}
+                4.ユーザーが利用開始後に成年に達した場合、当該ユーザーは成年到達後も引き続き本アプリを利用する意思をもって本規約に同意したものとみなします。{'\n'}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>閉じる</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
+  title: { fontSize: 32, fontWeight: 'bold', marginBottom: 32, textAlign: 'center' },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 16 },
+  termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  linkText: { color: '#007AFF', textDecorationLine: 'underline', marginLeft: 8 },
+  button: { backgroundColor: '#aaacf5ff', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 24 },
+  buttonText: { color: '#fff', fontSize: 16 },
+  divider: { height: 1, backgroundColor: '#ccc', marginVertical: 24 },
+  registerText: { color: '#007AFF', fontSize: 16, textAlign: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalContent: { margin: 20, backgroundColor: 'white', borderRadius: 8, padding: 20, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  modalText: { fontSize: 16, lineHeight: 24 },
+  modalButton: { marginTop: 12, backgroundColor: '#007AFF', borderRadius: 8, padding: 12, alignItems: 'center' },
+  modalButtonText: { color: '#fff', fontSize: 16 },
+});
