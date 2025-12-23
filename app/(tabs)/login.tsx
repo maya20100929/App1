@@ -73,6 +73,6 @@ const styles = StyleSheet.create({
   modalContent: { margin: 20, backgroundColor: 'white', borderRadius: 8, padding: 20, maxHeight: '80%' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
   modalText: { fontSize: 16, lineHeight: 24 },
-  modalButton: { marginTop: 12, backgroundColor: '#007AFF', borderRadius: 8, padding: 12, alignItems: 'center' },
+  modalButton: { marginTop: 12, backgroundColor: '#aaacf5ff', borderRadius: 8, padding: 12, alignItems: 'center' },
   modalButtonText: { color: '#fff', fontSize: 16 },
 });
