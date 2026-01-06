@@ -1,6 +1,14 @@
 import { router } from 'expo-router';
-import React, { FC, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { FC, useMemo, useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 const HomeScreen: FC = () => {
   const [todayTasks, setTodayTasks] = useState([
@@ -10,9 +18,24 @@ const HomeScreen: FC = () => {
 
   const addTask = () => setTodayTasks([...todayTasks, "新しいタスク"]);
 
-  const testDate = new Date("2025-12-10");
-  const today = new Date();
-  const diffDays = Math.ceil((testDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  /* ===== テスト日付 ===== */
+  const [testDateText, setTestDateText] = useState('2025-12-10');
+
+  const testDate = useMemo(() => {
+    const d = new Date(testDateText);
+    return isNaN(d.getTime()) ? null : d;
+  }, [testDateText]);
+
+  const diffDays = useMemo(() => {
+    if (!testDate) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    testDate.setHours(0, 0, 0, 0);
+    const diff =
+      (testDate.getTime() - today.getTime()) /
+      (1000 * 60 * 60 * 24);
+    return Math.ceil(diff);
+  }, [testDate]);
 
   const { width } = useWindowDimensions();
   const isPC = width > 600;
@@ -70,7 +93,17 @@ const HomeScreen: FC = () => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.daysLeft}>テストまで {diffDays}日</Text>
+        <View style={{ alignItems: 'center', marginBottom: 12 }}>
+          <TextInput
+            style={styles.dateInput}
+            value={testDateText}
+            onChangeText={setTestDateText}
+            placeholder="YYYY-MM-DD"
+          />
+          {diffDays !== null && (
+            <Text style={styles.daysLeft}>テストまで {diffDays}日</Text>
+          )}
+        </View>
 
         {renderGoal()}
 
@@ -105,7 +138,17 @@ const HomeScreen: FC = () => {
 
       <ScrollView style={styles.mainArea}>
         <View style={styles.topRow}>
-          <Text style={styles.daysLeft}>テストまで {diffDays}日</Text>
+          <View>
+            <TextInput
+              style={styles.dateInput}
+              value={testDateText}
+              onChangeText={setTestDateText}
+              placeholder="YYYY-MM-DD"
+            />
+            {diffDays !== null && (
+              <Text style={styles.daysLeft}>テストまで {diffDays}日</Text>
+            )}
+          </View>
           {renderGoal()}
         </View>
 
@@ -124,22 +167,52 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  menuRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 16 },
-  menuButton: { padding: 12, backgroundColor: "#aaacf5ff", borderRadius: 8, marginBottom: 8 },
+
+  menuRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 16,
+  },
+
+  menuButton: {
+    padding: 12,
+    backgroundColor: "#aaacf5ff",
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+
   menuText: { color: "#fff", fontWeight: "bold" },
-  daysLeft: { 
-    flex: 1,
+
+  dateInput: {
+    borderWidth: 1,
+    padding: 6,
+    width: 140,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+
+  daysLeft: {
     fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 0,
     textAlign: "center",
-    textAlignVertical: "center", 
   },
+
   section: { marginBottom: 20 },
+
   sectionTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 8 },
+
   goalText: { fontSize: 16 },
+
   bullet: { fontSize: 16, marginBottom: 4 },
-  addButton: { marginTop: 8, backgroundColor: "#aaacf5ff", padding: 8, borderRadius: 8, alignItems: "center" },
+
+  addButton: {
+    marginTop: 8,
+    backgroundColor: "#aaacf5ff",
+    padding: 8,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+
   addButtonText: { color: "#fff", fontSize: 18 },
 
   box: {
@@ -151,16 +224,37 @@ const styles = StyleSheet.create({
   },
 
   pcContainer: { flex: 1, flexDirection: "row" },
-  sideMenu: { width: 200, backgroundColor: "#f0edffff", padding: 16 },
-  mainArea: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  topRow: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
+
+  sideMenu: {
+    width: 200,
+    backgroundColor: "#f0edffff",
+    padding: 16,
+  },
+
+  mainArea: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: "#fff",
+  },
+
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "stretch",
     marginBottom: 30,
-    marginTop: 40, 
+    marginTop: 40,
   },
-  goalSection: { flex: 1, marginLeft: 16, justifyContent: "center" },
-  twoColumns: { flexDirection: "row", justifyContent: "space-between" },
+
+  goalSection: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: "center",
+  },
+
+  twoColumns: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
   column: { flex: 1, marginRight: 8 },
 });

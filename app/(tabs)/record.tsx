@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import {
     Alert,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
@@ -20,7 +21,7 @@ type SubjectRule = {
 };
 
 type PointRule = {
-  [material: string]: number; // 1単位あたりのpt
+  [material: string]: number;
 };
 
 type PointRules = {
@@ -28,7 +29,7 @@ type PointRules = {
 };
 
 /* =====================
-   科目ごとの単位
+   初期データ
 ===================== */
 const subjectRules: SubjectRule[] = [
   { subject: '数学', unit: '問' },
@@ -38,9 +39,6 @@ const subjectRules: SubjectRule[] = [
   { subject: '社会', unit: 'ページ' },
 ];
 
-/* =====================
-   教材ごとのポイント換算
-===================== */
 const pointRules: PointRules = {
   数学: {
     青チャート: 1,
@@ -63,9 +61,15 @@ const pointRules: PointRules = {
 
 export default function RecordScreen() {
   const [subject, setSubject] = useState<Subject>('数学');
+
   const [material, setMaterial] = useState('');
+  const [customMaterial, setCustomMaterial] = useState('');
+
   const [content, setContent] = useState('');
   const [amount, setAmount] = useState('');
+
+  const [editUnit, setEditUnit] = useState(false);
+  const [customUnit, setCustomUnit] = useState('');
 
   const rule = useMemo(
     () => subjectRules.find(r => r.subject === subject),
@@ -73,23 +77,34 @@ export default function RecordScreen() {
   );
 
   /* =====================
+     実際に使う教材名
+  ===================== */
+  const actualMaterial =
+    material === '__custom__' ? customMaterial : material;
+
+  /* =====================
+     実際に使う単位
+  ===================== */
+  const actualUnit = editUnit ? customUnit : rule?.unit;
+
+  /* =====================
      ポイント計算
   ===================== */
   const point = useMemo(() => {
     const num = Number(amount);
-    if (!num || !material) return 0;
+    if (!num || !actualMaterial) return 0;
 
-    const rate = pointRules[subject][material];
+    const rate = pointRules[subject][actualMaterial];
     if (!rate) return 0;
 
     return Math.floor(num * rate);
-  }, [amount, material, subject]);
+  }, [amount, actualMaterial, subject]);
 
   /* =====================
-     保存（仮）
+     保存
   ===================== */
   const handleSave = () => {
-    if (!material || !content || !amount) {
+    if (!actualMaterial || !content || !amount || !actualUnit) {
       Alert.alert('入力不足', 'すべて入力してください');
       return;
     }
@@ -98,10 +113,10 @@ export default function RecordScreen() {
       id: Date.now().toString(),
       date: new Date().toISOString().slice(0, 10),
       subject,
-      material,
+      material: actualMaterial,
       content,
       amount: Number(amount),
-      unit: rule?.unit,
+      unit: actualUnit,
       point,
     };
 
@@ -109,12 +124,15 @@ export default function RecordScreen() {
 
     Alert.alert(
       '保存しました',
-      `${subject} / ${material}\n${amount}${rule?.unit} → ${point} pt`
+      `${subject} / ${actualMaterial}\n${amount}${actualUnit} → ${point} pt`
     );
 
     setMaterial('');
+    setCustomMaterial('');
     setContent('');
     setAmount('');
+    setEditUnit(false);
+    setCustomUnit('');
   };
 
   return (
@@ -126,11 +144,7 @@ export default function RecordScreen() {
       <View style={styles.pickerWrapper}>
         <Picker selectedValue={subject} onValueChange={setSubject}>
           {subjectRules.map(r => (
-            <Picker.Item
-              key={r.subject}
-              label={r.subject}
-              value={r.subject}
-            />
+            <Picker.Item key={r.subject} label={r.subject} value={r.subject} />
           ))}
         </Picker>
       </View>
@@ -138,16 +152,23 @@ export default function RecordScreen() {
       {/* 教材 */}
       <Text style={styles.label}>教材</Text>
       <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={material}
-          onValueChange={setMaterial}
-        >
+        <Picker selectedValue={material} onValueChange={setMaterial}>
           <Picker.Item label="選択してください" value="" />
           {Object.keys(pointRules[subject]).map(m => (
             <Picker.Item key={m} label={m} value={m} />
           ))}
+          <Picker.Item label="＋ 教材を追加 / 編集" value="__custom__" />
         </Picker>
       </View>
+
+      {material === '__custom__' && (
+        <TextInput
+          style={styles.input}
+          placeholder="教材名を入力"
+          value={customMaterial}
+          onChangeText={setCustomMaterial}
+        />
+      )}
 
       {/* 内容 */}
       <Text style={styles.label}>内容</Text>
@@ -159,7 +180,9 @@ export default function RecordScreen() {
       />
 
       {/* 量 */}
-      <Text style={styles.label}>量（{rule?.unit}）</Text>
+      <Text style={styles.label}>
+        量（{actualUnit ?? '単位'}）
+      </Text>
       <TextInput
         style={styles.input}
         keyboardType="numeric"
@@ -167,11 +190,24 @@ export default function RecordScreen() {
         onChangeText={setAmount}
       />
 
+      {/* 単位編集 */}
+      <View style={styles.switchRow}>
+        <Text>単位を編集する</Text>
+        <Switch value={editUnit} onValueChange={setEditUnit} />
+      </View>
+
+      {editUnit && (
+        <TextInput
+          style={styles.input}
+          placeholder="例：ページ、分、セット"
+          value={customUnit}
+          onChangeText={setCustomUnit}
+        />
+      )}
+
       {/* ポイント */}
       <View style={styles.pointBox}>
-        <Text style={styles.pointText}>
-          今回のポイント：{point} pt
-        </Text>
+        <Text style={styles.pointText}>今回のポイント：{point} pt</Text>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleSave}>
@@ -212,6 +248,12 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 8,
     padding: 12,
+    marginBottom: 16,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
   pointBox: {
