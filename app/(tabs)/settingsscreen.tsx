@@ -17,6 +17,15 @@ export default function SettingsScreen() {
   const [lastLogin, setLastLogin] = useState('');
   const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [grade, setGrade] = useState('');
+
+  const saveUserProfile = async () => {
+    await AsyncStorage.setItem('userName', userName);
+    await AsyncStorage.setItem('grade', grade);
+    Alert.alert('保存しました');
+  };
+
 
   const handleLogout = () => {
     Alert.alert('ログアウト', 'ログアウトしますか？', [
@@ -37,6 +46,11 @@ export default function SettingsScreen() {
   useEffect(() => {
     (async () => {
       const saved = await AsyncStorage.getItem('lastLogin');
+      const savedName = await AsyncStorage.getItem('userName');
+      const savedGrade = await AsyncStorage.getItem('grade');
+
+      if (savedName) setUserName(savedName);
+      if (savedGrade) setGrade(savedGrade);
       if (saved) {
         const d = new Date(saved);
         setLastLogin(
@@ -63,6 +77,7 @@ export default function SettingsScreen() {
 
   // --- 追加: 設定項目リスト ---
   const settingsItems = [
+    { section: 'プロフィール', label: '名前・学年を設定', type: 'profile' },
     { section: 'テーマカラー', label: 'テーマカラー', type: 'color' },
     { section: '利用履歴', label: '最終ログイン', type: 'text' },
     { section: '通知', label: '通知オン/オフ（後で実装）', type: 'text' },
@@ -116,6 +131,35 @@ export default function SettingsScreen() {
             </View>
           );
         }
+
+        if (item.type === 'profile') {
+          return (
+            <View key={index}>
+              <Text style={styles.sectionTitle}>プロフィール</Text>
+              <View style={styles.box}>
+                <TextInput
+                  placeholder="ニックネーム"
+                  value={userName}
+                  onChangeText={setUserName}
+                  style={[styles.searchInput, { marginBottom: 12 }]}
+                />
+                <TextInput
+                  placeholder="学年"
+                  value={grade}
+                  onChangeText={setGrade}
+                  style={styles.searchInput}
+                />
+                <TouchableOpacity
+                  onPress={saveUserProfile}
+                  style={[styles.modalButton, { marginTop: 12 }]}
+                >
+                  <Text style={styles.modalButtonText}>保存</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        }
+
 
         // 通常のボタンやテキスト
         return (

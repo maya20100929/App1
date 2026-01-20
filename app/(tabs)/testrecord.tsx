@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type Subject = '数学' | '国語' | '理科' | '社会' | '英語';

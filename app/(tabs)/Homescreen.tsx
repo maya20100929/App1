@@ -11,22 +11,41 @@ import {
 } from 'react-native';
 
 const HomeScreen: FC = () => {
-  const [todayTasks, setTodayTasks] = useState([
-    "あああああああ",
-    "いいいいいいいい",
-  ]);
 
-  const addTask = () => setTodayTasks([...todayTasks, "新しいタスク"]);
+  type Task = {
+  id: string;
+  text: string;
+  done: boolean; // ← チェック情報
+};
+
+
+  const [todayTasks, setTodayTasks] = useState<Task[]>([
+  { id: '1', text: 'あああああああ', done: false },
+  { id: '2', text: 'いいいいいいいい', done: false },
+]);
+
+  const addTask = () => setTodayTasks([...todayTasks, { id: Date.now().toString(), text: "新しいタスク", done: false }]);
 
   /* ===== テスト日付 ===== */
   const [testDateText, setTestDateText] = useState('2025-12-10');
+
+
+const toggleTask = (id: string) => {
+  setTodayTasks(prev =>
+    prev.map(task =>
+      task.id === id
+        ? { ...task, done: !task.done }
+        : task
+    )
+  );
+};
 
   const testDate = useMemo(() => {
     const d = new Date(testDateText);
     return isNaN(d.getTime()) ? null : d;
   }, [testDateText]);
 
-  const diffDays = useMemo(() => {
+  const diffLeft = useMemo(() => {
     if (!testDate) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -45,9 +64,27 @@ const HomeScreen: FC = () => {
   const renderTasks = () => (
     <View style={[styles.section, styles.box]}>
       <Text style={styles.sectionTitle}>今日やること</Text>
-      {todayTasks.map((task, index) => (
-        <Text key={index} style={styles.bullet}>・{task}</Text>
-      ))}
+
+      {todayTasks.map(task => (
+        <TouchableOpacity
+    key={task.id}
+    onPress={() => toggleTask(task.id)}
+    style={{ flexDirection: 'row', alignItems: 'center' }}
+  >
+    <Text>
+      {task.done ? '☑' : '☐'}
+    </Text>
+
+    <Text
+      style={[
+        styles.bullet,
+        task.done && { textDecorationLine: 'line-through' },
+      ]}
+    >
+      {task.text}
+    </Text>
+  </TouchableOpacity>
+))}
       <TouchableOpacity style={styles.addButton} onPress={addTask}>
         <Text style={styles.addButtonText}>＋</Text>
       </TouchableOpacity>
@@ -70,6 +107,8 @@ const HomeScreen: FC = () => {
       <Text style={styles.goalText}>ここに目標を表示</Text>
     </View>
   );
+
+
 
   // ====== スマホ表示 ======
   if (isMobile) {
@@ -100,8 +139,8 @@ const HomeScreen: FC = () => {
             onChangeText={setTestDateText}
             placeholder="YYYY-MM-DD"
           />
-          {diffDays !== null && (
-            <Text style={styles.daysLeft}>テストまで {diffDays}日</Text>
+          {diffLeft !== null && (
+            <Text style={styles.daysLeft}>テストまで {diffLeft}日</Text>
           )}
         </View>
 
@@ -145,8 +184,8 @@ const HomeScreen: FC = () => {
               onChangeText={setTestDateText}
               placeholder="YYYY-MM-DD"
             />
-            {diffDays !== null && (
-              <Text style={styles.daysLeft}>テストまで {diffDays}日</Text>
+            {diffLeft !== null && (
+              <Text style={styles.daysLeft}>テストまで {diffLeft}日</Text>
             )}
           </View>
           {renderGoal()}
@@ -162,6 +201,8 @@ const HomeScreen: FC = () => {
     </View>
   );
 };
+
+
 
 export default HomeScreen;
 
@@ -258,3 +299,5 @@ const styles = StyleSheet.create({
 
   column: { flex: 1, marginRight: 8 },
 });
+
+
