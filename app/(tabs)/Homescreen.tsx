@@ -10,21 +10,57 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { useEffect } from 'react';
+
 const HomeScreen: FC = () => {
+
+  useEffect(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  setTodayTasks(prev => {
+    const stillToday: Task[] = [];
+    const moved: Task[] = [];
+
+    prev.forEach(task => {
+      const taskDate = new Date(task.date);
+      taskDate.setHours(0, 0, 0, 0);
+
+      if (!task.done && taskDate < today) {
+        moved.push(task);
+      } else {
+        stillToday.push(task);
+      }
+    });
+
+    if (moved.length > 0) {
+      setPastTasks(p => [...p, ...moved]);
+    }
+
+    return stillToday;
+  });
+}, []);
+
 
   type Task = {
   id: string;
   text: string;
-  done: boolean; // ← チェック情報
+  done: boolean;
+  date: string;
+  archived?: boolean;
 };
 
 
-  const [todayTasks, setTodayTasks] = useState<Task[]>([
-  { id: '1', text: 'あああああああ', done: false },
-  { id: '2', text: 'いいいいいいいい', done: false },
+const [todayTasks, setTodayTasks] = useState<Task[]>([
+  { id: '1', text: 'あああああああ', done: false, date: '2026-01-27' },
+  { id: '2', text: 'いいいいいいいい', done: false, date: '2026-01-27' },
 ]);
 
-  const addTask = () => setTodayTasks([...todayTasks, { id: Date.now().toString(), text: "新しいタスク", done: false }]);
+const [pastTasks, setPastTasks] = useState<Task[]>([]);
+const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
+
+
+
 
   /* ===== テスト日付 ===== */
   const [testDateText, setTestDateText] = useState('2025-12-10');
@@ -61,6 +97,7 @@ const toggleTask = (id: string) => {
   const isMobile = !isPC;
 
   // 共通レンダリング関数
+  
   const renderTasks = () => (
     <View style={[styles.section, styles.box]}>
       <Text style={styles.sectionTitle}>今日やること</Text>
@@ -100,6 +137,17 @@ const toggleTask = (id: string) => {
       <Text>・かきくけこ</Text>
     </View>
   );
+
+  const completePastTask = (id: string) => {
+  setPastTasks(prev => {
+    const target = prev.find(t => t.id === id);
+    if (!target) return prev;
+
+    setArchivedTasks(a => [...a, { ...target, archived: true }]);
+    return prev.filter(t => t.id !== id);
+  });
+};
+
 
   const renderGoal = () => (
     <View style={[styles.goalSection, isMobile && { marginBottom: 20, marginTop: 16 }]}>
@@ -299,5 +347,7 @@ const styles = StyleSheet.create({
 
   column: { flex: 1, marginRight: 8 },
 });
+
+
 
 
