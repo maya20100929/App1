@@ -1,20 +1,55 @@
-import { Link } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Link, router } from 'expo-router';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { auth } from '../(lib)/firebase';
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
 
-  const handleLogin = () => {
-    if (!agreed) {
-      Alert.alert('利用規約', '利用規約に同意してください');
+  const validateForm = () => {
+    const errors: string[] = [];
+    const email = userId.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      errors.push('有効なメールアドレスを入力してください。');
+    }
+    if (password.length === 0) {
+      errors.push('パスワードを入力してください。');
+    }
+    return errors;
+  };
+
+  const handleLogin = async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      setErrorMessage(errors.join('\n'));
       return;
     }
-    Alert.alert('ログイン情報', `ユーザーID: ${userId}\nパスワード: ${password}`);
+    setErrorMessage('');
+    try {
+      await signInWithEmailAndPassword(auth, userId.trim(), password);
+      router.push('/Homescreen');
+    } catch (e: any) {
+      let msg = 'ログインエラー';
+      if (e.code === 'auth/user-not-found') {
+        msg = 'このアカウントは存在しません';
+      } else if (e.code === 'auth/wrong-password') {
+        msg = 'パスワードが間違っています';
+      } else if (e.code === 'auth/invalid-email') {
+        msg = 'メールアドレスの形式が正しくありません';
+      } else {
+        msg = 'メールアドレスまたはパスワードが間違っています';
+      }
+      setErrorMessage(msg);
+    }
   };
 
   return (
@@ -22,23 +57,38 @@ export default function LoginScreen() {
       {/* ①題名 */}
       <Text style={styles.title}>ログイン</Text>
 
-      {/* ②ユーザーID */}
+      {/* ②メアド */}
       <TextInput
         style={styles.input}
-        placeholder="ユーザーID"
+        placeholder="メールアドレス"
         value={userId}
         onChangeText={setUserId}
       />
 
       {/* ③パスワード */}
-      <TextInput
-        style={styles.input}
-        placeholder="パスワード"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={{ position: 'relative' }}>
+        <TextInput
+          style={styles.input}
+          placeholder="パスワード"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity
+          style={{ position: 'absolute', right: 12, top: 12 }}
+          onPress={() => setShowPassword(!showPassword)}
+        >
+          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#666" />
+        </TouchableOpacity>
+      </View>
       
+      {/* エラーメッセージ */}
+      {errorMessage ? (
+        <Text style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>
+          {errorMessage}
+        </Text>
+      ) : null}
+
       {/* ログインボタン */}
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>ログイン</Text>

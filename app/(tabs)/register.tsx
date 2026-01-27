@@ -1,19 +1,64 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../(lib)/firebase';
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
 
-  const handleLogin = () => {
+  const validateForm = () => {
+    const errors: string[] = [];
+    const email = userId.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      errors.push('有効なメールアドレスを入力してください。');
+    }
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      errors.push('パスワードは8文字以上で、英字と数字を含めてください。');
+    }
     if (!agreed) {
-      Alert.alert('利用規約', '利用規約に同意してください');
+      errors.push('利用規約とプライバシーポリシーに同意してください。');
+    }
+    return errors;
+  };
+
+  const handleLogin = async () => {
+    console.log('handleLogin called');
+    const errors = validateForm();
+    console.log('errors:', errors);
+    if (errors.length > 0) {
+      setErrorMessage(errors.join('\n'));
       return;
     }
-    Alert.alert('ログイン情報', `ユーザーID: ${userId}\nパスワード: ${password}`);
+    setErrorMessage('');
+    try {
+      const userCred = await createUserWithEmailAndPassword(auth, userId.trim(), password);
+      const uid = userCred.user.uid;
+      try {
+        await setDoc(doc(db, 'users', uid), {
+          email: userId.trim(),
+          agreed: true,
+          createdAt: serverTimestamp(),
+        });
+      } catch (e2: any) {
+        console.warn('failed to save user doc', e2);
+      }
+      // navigate to index (ログイン画面)
+      router.push('/');
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      setErrorMessage(msg);
+    }
   };
 
   return (
@@ -21,22 +66,33 @@ export default function LoginScreen() {
       {/* ①題名 */}
       <Text style={styles.title}>新規登録</Text>
 
-      {/* ②ユーザーID */}
+      {/* ②メアド */}
       <TextInput
         style={styles.input}
-        placeholder="ユーザーID"
+        placeholder="メールアドレス"
         value={userId}
         onChangeText={setUserId}
       />
 
       {/* ③パスワード */}
-      <TextInput
-        style={styles.input}
-        placeholder="パスワード"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={{ position: 'relative' }}>
+        <TextInput
+          style={styles.input}
+          placeholder="パスワード"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity
+          style={{ position: 'absolute', right: 12, top: 12 }}
+          onPress={() => setShowPassword(!showPassword)}
+        >
+          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#666" />
+        </TouchableOpacity>
+      </View>
+      <Text style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+        パスワードは8文字以上で、英字と数字を含めてください。
+      </Text>
 
       {/* 利用規約チェック（ここにSwitchを置く） */}
     <View style={styles.termsContainer}>
@@ -50,6 +106,13 @@ export default function LoginScreen() {
       <Text style={styles.linkText}>利用規約・プライバシーポリシーを見る</Text>
     </TouchableOpacity>
     </View>
+
+      {/* エラーメッセージ */}
+      {errorMessage ? (
+        <Text style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>
+          {errorMessage}
+        </Text>
+      ) : null}
 
       {/* 登録ボタン */}
       <TouchableOpacity style={styles.button} onPress={handleLogin}>

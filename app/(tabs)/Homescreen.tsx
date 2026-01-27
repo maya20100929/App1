@@ -1,5 +1,19 @@
 import { router } from 'expo-router';
-import React, { FC, useMemo, useState } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  updateDoc
+} from 'firebase/firestore';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -9,10 +23,69 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-
-import { useEffect } from 'react';
+import { auth, db } from '../(lib)/firebase';
 
 const HomeScreen: FC = () => {
+
+  const [user, setUser] = useState<any | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [newTaskText, setNewTaskText] = useState('');
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, u => {
+      setUser(u);
+    });
+    return () => unsub();
+  }, []);
+
+  // listen to tasks for current user
+  useEffect(() => {
+    if (!user) {
+      setTodayTasks([]);
+      setPastTasks([]);
+      setArchivedTasks([]);
+      return;
+    }
+
+    const tasksRef = collection(db, 'users', user.uid, 'tasks');
+    const q = query(tasksRef);
+    const unsub = onSnapshot(q, snapshot => {
+      const all: Task[] = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const todayArr: Task[] = [];
+      const pastArr: Task[] = [];
+      const archivedArr: Task[] = [];
+
+      all.forEach(t => {
+        if (t.archived) {
+          archivedArr.push(t);
+          return;
+        }
+        const td = new Date(t.date);
+        td.setHours(0, 0, 0, 0);
+        if (!t.done && td < today) {
+          pastArr.push(t);
+        } else if (!t.done && td.getTime() === today.getTime()) {
+          todayArr.push(t);
+        } else if (t.done && td.getTime() === today.getTime()) {
+          todayArr.push(t);
+        } else {
+          // future or other tasks, treat as today when date matches
+          todayArr.push(t);
+        }
+      });
+
+      setTodayTasks(todayArr);
+      setPastTasks(pastArr);
+      setArchivedTasks(archivedArr);
+    });
+
+    return () => unsub();
+  }, [user]);
 
   useEffect(() => {
   const today = new Date();
@@ -51,10 +124,7 @@ const HomeScreen: FC = () => {
 };
 
 
-const [todayTasks, setTodayTasks] = useState<Task[]>([
-  { id: '1', text: 'あああああああ', done: false, date: '2026-01-27' },
-  { id: '2', text: 'いいいいいいいい', done: false, date: '2026-01-27' },
-]);
+  const [todayTasks, setTodayTasks] = useState<Task[]>([]);
 
 const [pastTasks, setPastTasks] = useState<Task[]>([]);
 const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
@@ -67,13 +137,19 @@ const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
 
 
 const toggleTask = (id: string) => {
-  setTodayTasks(prev =>
-    prev.map(task =>
-      task.id === id
-        ? { ...task, done: !task.done }
-        : task
-    )
-  );
+  // update in Firestore
+  (async () => {
+    if (!user) return;
+    const all = [...todayTasks, ...pastTasks, ...archivedTasks];
+    const target = all.find(t => t.id === id);
+    if (!target) return;
+    const taskRef = doc(db, 'users', user.uid, 'tasks', id);
+    try {
+      await updateDoc(taskRef, { done: !target.done });
+    } catch (e) {
+      console.warn('toggleTask update failed', e);
+    }
+  })();
 };
 
   const testDate = useMemo(() => {
@@ -122,9 +198,36 @@ const toggleTask = (id: string) => {
     </Text>
   </TouchableOpacity>
 ))}
-      <TouchableOpacity style={styles.addButton} onPress={addTask}>
-        <Text style={styles.addButtonText}>＋</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+        <TextInput
+          style={[styles.dateInput, { flex: 1, marginRight: 8 }]}
+          value={newTaskText}
+          onChangeText={setNewTaskText}
+          placeholder="新しいタスク"
+        />
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={async () => {
+            if (!user) return;
+            const tasksRef = collection(db, 'users', user.uid, 'tasks');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            try {
+              await addDoc(tasksRef, {
+                text: newTaskText || '新しいタスク',
+                done: false,
+                date: dateStr,
+                archived: false,
+                createdAt: Date.now(),
+              });
+              setNewTaskText('');
+            } catch (e) {
+              console.warn('addTask failed', e);
+            }
+          }}
+        >
+          <Text style={styles.addButtonText}>＋</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -139,13 +242,15 @@ const toggleTask = (id: string) => {
   );
 
   const completePastTask = (id: string) => {
-  setPastTasks(prev => {
-    const target = prev.find(t => t.id === id);
-    if (!target) return prev;
-
-    setArchivedTasks(a => [...a, { ...target, archived: true }]);
-    return prev.filter(t => t.id !== id);
-  });
+  (async () => {
+    if (!user) return;
+    const taskRef = doc(db, 'users', user.uid, 'tasks', id);
+    try {
+      await updateDoc(taskRef, { archived: true });
+    } catch (e) {
+      console.warn('completePastTask failed', e);
+    }
+  })();
 };
 
 
@@ -162,6 +267,67 @@ const toggleTask = (id: string) => {
   if (isMobile) {
     return (
       <ScrollView style={styles.container}>
+        {!user && (
+          <View style={{ alignItems: 'center', marginBottom: 12 }}>
+            <TextInput
+              style={styles.dateInput}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.dateInput}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              secureTextEntry
+            />
+            <View style={{ flexDirection: 'row', marginTop: 8 }}>
+              <TouchableOpacity
+                style={[styles.menuButton, { marginRight: 8 }]}
+                onPress={async () => {
+                  try {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                  } catch (e) {
+                    console.warn('register failed', e);
+                  }
+                }}
+              >
+                <Text style={styles.menuText}>登録</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={async () => {
+                  try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                  } catch (e) {
+                    console.warn('login failed', e);
+                  }
+                }}
+              >
+                <Text style={styles.menuText}>ログイン</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {user && (
+          <View style={{ alignItems: 'flex-end', marginBottom: 8 }}>
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={async () => {
+                try {
+                  await signOut(auth);
+                } catch (e) {
+                  console.warn('logout failed', e);
+                }
+              }}
+            >
+              <Text style={styles.menuText}>ログアウト</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={styles.menuRow}>
           <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/record')}>
             <Text style={styles.menuText}>記録</Text>
