@@ -8,22 +8,26 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   query,
+  setDoc,
   updateDoc
 } from 'firebase/firestore';
 import React, { FC, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
+  useWindowDimensions
 } from 'react-native';
-import { auth, db } from '../(lib)/firebase';
+import { auth, db } from '../../lib/firebase';
 
 const HomeScreen: FC = () => {
 
@@ -31,9 +35,12 @@ const HomeScreen: FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
+      console.log('Homescreen: onAuthStateChanged', { uid: u?.uid ?? null });
       setUser(u);
     });
     return () => unsub();
@@ -88,69 +95,228 @@ const HomeScreen: FC = () => {
   }, [user]);
 
   useEffect(() => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  if (!user) return;
 
-  setTodayTasks(prev => {
-    const stillToday: Task[] = [];
-    const moved: Task[] = [];
+  const userRef = doc(db, 'users', user.uid);
+  const unsubUser = onSnapshot(userRef, snap => {
+    const data = snap.data();
+    const raw = data?.testDate;
 
-    prev.forEach(task => {
-      const taskDate = new Date(task.date);
-      taskDate.setHours(0, 0, 0, 0);
+    setRawTestDateRaw(raw);
+    setRawTestGoalRaw(data?.testGoal ?? null);
 
-      if (!task.done && taskDate < today) {
-        moved.push(task);
-      } else {
-        stillToday.push(task);
-      }
-    });
-
-    if (moved.length > 0) {
-      setPastTasks(p => [...p, ...moved]);
-    }
-
-    return stillToday;
+    const normalized = normalizeDateField(raw);
+    setTestDateText(normalized);
+    setTestGoal(data?.testGoal ?? '');
   });
-}, []);
+
+  return () => unsubUser();
+}, [user]);
+
+
+  // manual fetch for debugging
+  const fetchUserDoc = async () => {
+    if (!user) {
+      Alert.alert('ログインが必要', 'ユーザー情報を取得するにはログインしてください。');
+      return;
+    }
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      console.log('Homescreen: fetchUserDoc', JSON.stringify(snap.data()));
+      const data = snap.data() || {};
+      setRawTestDateRaw(data.testDate ?? null);
+      setRawTestGoalRaw(data.testGoal ?? null);
+      setTestDateText(normalizeDateField(data.testDate));
+      setTestGoal(data.testGoal ?? '');
+      Alert.alert('ユーザードキュメントを取得しました');
+    } catch (e) {
+      console.warn('Homescreen: fetchUserDoc failed', e);
+      Alert.alert('取得に失敗しました');
+    }
+  };
+
+  
+
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    setTodayTasks(prev => {
+      const stillToday: Task[] = [];
+      const moved: Task[] = [];
+
+      prev.forEach(task => {
+        const taskDate = new Date(task.date);
+        taskDate.setHours(0, 0, 0, 0);
+
+        if (!task.done && taskDate < today) {
+          moved.push(task);
+        } else {
+          stillToday.push(task);
+        }
+      });
+
+      if (moved.length > 0) {
+        setPastTasks(p => [...p, ...moved]);
+      }
+
+      return stillToday;
+    });
+  }, []);
 
 
   type Task = {
-  id: string;
-  text: string;
-  done: boolean;
-  date: string;
-  archived?: boolean;
-};
+    id: string;
+    text: string;
+    done: boolean;
+    date: string;
+    archived?: boolean;
+  };
 
 
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
 
-const [pastTasks, setPastTasks] = useState<Task[]>([]);
-const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
+  const [pastTasks, setPastTasks] = useState<Task[]>([]);
+  const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
 
 
 
 
   /* ===== テスト日付 ===== */
-  const [testDateText, setTestDateText] = useState('2025-12-10');
+  const [testDateText, setTestDateText] = useState('');
+  const [testGoal, setTestGoal] = useState('');
 
+  // debug raw values from Firestore
+  const [rawTestDateRaw, setRawTestDateRaw] = useState<any>(null);
+  const [rawTestGoalRaw, setRawTestGoalRaw] = useState<any>(null);
 
-const toggleTask = (id: string) => {
-  // update in Firestore
-  (async () => {
-    if (!user) return;
-    const all = [...todayTasks, ...pastTasks, ...archivedTasks];
-    const target = all.find(t => t.id === id);
-    if (!target) return;
-    const taskRef = doc(db, 'users', user.uid, 'tasks', id);
-    try {
-      await updateDoc(taskRef, { done: !target.done });
-    } catch (e) {
-      console.warn('toggleTask update failed', e);
+  const normalizeDateField = (raw: any) => {
+    if (!raw) return '';
+    if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+    if ((raw as any).toDate && typeof (raw as any).toDate === 'function') {
+      try { return (raw as any).toDate().toISOString().slice(0, 10); } catch (e) { return ''; }
     }
-  })();
+    if (typeof raw === 'string') return raw;
+    try {
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const isValidYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  const saveTestInfo = async () => {
+  console.log('🔥 saveTestInfo called', { testDateText, testGoal }); // ← ここ①
+
+  if (!user) {
+    Alert.alert('ログインが必要', 'テスト情報を保存するにはログインしてください。');
+    return;
+  }
+
+  if (testDateText && !isValidYMD(testDateText)) {
+    Alert.alert('日付形式が不正です', '日付は YYYY-MM-DD 形式で入力してください');
+    return;
+  }
+
+  try {
+    const payload: any = {};
+    if (testGoal && testGoal.trim() !== '') payload.testGoal = testGoal;
+    if (testDateText) payload.testDate = testDateText;
+
+    console.log('🧾 payload', payload);
+
+    if (Object.keys(payload).length === 0) {
+      Alert.alert('保存する内容がありません');
+      return;
+    }
+
+    await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+    Alert.alert('保存しました');
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '保存に失敗しました';
+    Alert.alert('エラー', msg);
+  }
 };
+
+
+
+
+  const toggleTask = (id: string) => {
+    // update in Firestore
+    (async () => {
+      if (!user) return;
+      const all = [...todayTasks, ...pastTasks, ...archivedTasks];
+      const target = all.find(t => t.id === id);
+      if (!target) return;
+      const taskRef = doc(db, 'users', user.uid, 'tasks', id);
+      try {
+        await updateDoc(taskRef, { done: !target.done });
+      } catch (e) {
+        console.warn('toggleTask update failed', e);
+      }
+    })();
+  };
+
+  const saveEdit = (id: string) => {
+    (async () => {
+      if (!user) {
+        Alert.alert('ログインが必要', 'タスクを編集するにはログインしてください。');
+        return;
+      }
+      const text = editingText.trim();
+      if (!text) {
+        Alert.alert('入力してください', '編集内容を入力してください。');
+        return;
+      }
+      const taskRef = doc(db, 'users', user.uid, 'tasks', id);
+      try {
+        await updateDoc(taskRef, { text });
+        setEditingTaskId(null);
+        setEditingText('');
+      } catch (e) {
+        console.warn('saveEdit failed', e);
+      }
+    })();
+  };
+
+  const cancelEdit = () => {
+    setEditingTaskId(null);
+    setEditingText('');
+  };
+
+  const deleteTask = (id: string) => {
+  console.log('🗑 deleteTask called', { id, userPresent: !!user });
+
+//   if (!user) {
+//     Alert.alert('ログインが必要', 'タスクを削除するにはログインしてください。');
+//     return;
+//   }
+
+//   Alert.alert('削除', 'このタスクを削除しますか？', [
+//     { text: 'キャンセル', style: 'cancel' },
+//     {
+//       text: '削除',
+//       style: 'destructive',
+//       onPress: async () => {
+//         try {
+//           const taskRef = doc(db, 'users', user.uid, 'tasks', id);
+//           await deleteDoc(taskRef);
+
+//           setPastTasks((prev) => prev.filter((t) => t.id !== id));
+
+//           console.log('🗑 delete succeeded', id);
+//         } catch (e) {
+//           console.warn('deleteTask failed', e);
+//           const msg = e instanceof Error ? e.message : JSON.stringify(e);
+//           Alert.alert('削除エラー', msg);   // ← ここで理由が見える
+//         }
+//       },
+//     },
+//   ]);
+// };
+
 
   const testDate = useMemo(() => {
     const d = new Date(testDateText);
@@ -161,43 +327,70 @@ const toggleTask = (id: string) => {
     if (!testDate) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    testDate.setHours(0, 0, 0, 0);
+
+    const d = new Date(testDate);
+    d.setHours(0, 0, 0, 0);
+
     const diff =
-      (testDate.getTime() - today.getTime()) /
+      (d.getTime() - today.getTime()) /
       (1000 * 60 * 60 * 24);
     return Math.ceil(diff);
   }, [testDate]);
+
 
   const { width } = useWindowDimensions();
   const isPC = width > 600;
   const isMobile = !isPC;
 
   // 共通レンダリング関数
-  
+
   const renderTasks = () => (
     <View style={[styles.section, styles.box]}>
       <Text style={styles.sectionTitle}>今日やること</Text>
 
       {todayTasks.map(task => (
-        <TouchableOpacity
-    key={task.id}
-    onPress={() => toggleTask(task.id)}
-    style={{ flexDirection: 'row', alignItems: 'center' }}
-  >
-    <Text>
-      {task.done ? '☑' : '☐'}
-    </Text>
+        <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <TouchableOpacity onPress={() => toggleTask(task.id)} style={{ marginRight: 8 }}>
+            <Text>{task.done ? '☑' : '☐'}</Text>
+          </TouchableOpacity>
 
-    <Text
-      style={[
-        styles.bullet,
-        task.done && { textDecorationLine: 'line-through' },
-      ]}
-    >
-      {task.text}
-    </Text>
-  </TouchableOpacity>
-))}
+          {editingTaskId === task.id ? (
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+              <TextInput
+                style={[styles.dateInput, { flex: 1, marginRight: 8 }]}
+                value={editingText}
+                onChangeText={setEditingText}
+                placeholder="タスクを編集"
+              />
+              <TouchableOpacity onPress={() => saveEdit(task.id)} style={[styles.addButton, { paddingHorizontal: 12 }]}>
+                <Text style={styles.addButtonText}>保存</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={cancelEdit} style={[styles.menuButton, { marginLeft: 8 }]}>
+                <Text style={styles.menuText}>キャンセル</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <Text
+                style={[
+                  styles.bullet,
+                  task.done && { textDecorationLine: 'line-through' },
+                ]}
+              >
+                {task.text}
+              </Text>
+
+              <TouchableOpacity onPress={() => { setEditingTaskId(task.id); setEditingText(task.text); }} style={{ marginLeft: 8 }}>
+                <Text style={{ color: '#007AFF' }}>編集</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => deleteTask(task.id)} style={{ marginLeft: 8 }}>
+                <Text style={{ color: '#FF3B30' }}>削除</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      ))}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
         <TextInput
           style={[styles.dateInput, { flex: 1, marginRight: 8 }]}
@@ -208,21 +401,36 @@ const toggleTask = (id: string) => {
         <TouchableOpacity
           style={styles.addButton}
           onPress={async () => {
-            if (!user) return;
+            console.log('Homescreen: add button pressed', { newTaskText, userPresent: !!user });
+            if (!user) {
+              Alert.alert('ログインが必要', 'タスクを追加するにはログインしてください。');
+              return;
+            }
+            const text = newTaskText.trim();
+            if (!text) {
+              Alert.alert('入力してください', 'タスク内容を入力してください。');
+              return;
+            }
             const tasksRef = collection(db, 'users', user.uid, 'tasks');
             const dateStr = new Date().toISOString().slice(0, 10);
             try {
+              console.log('Homescreen: adding task', text);
               await addDoc(tasksRef, {
-                text: newTaskText || '新しいタスク',
+                text,
                 done: false,
                 date: dateStr,
                 archived: false,
                 createdAt: Date.now(),
               });
               setNewTaskText('');
-            } catch (e) {
+              console.log('Homescreen: addTask succeeded');
+            } catch (e: unknown) {
               console.warn('addTask failed', e);
+              const msg =
+                e instanceof Error ? e.message : 'タスクの追加に失敗しました。';
+              Alert.alert('エラー', msg);
             }
+
           }}
         >
           <Text style={styles.addButtonText}>＋</Text>
@@ -242,25 +450,24 @@ const toggleTask = (id: string) => {
   );
 
   const completePastTask = (id: string) => {
-  (async () => {
-    if (!user) return;
-    const taskRef = doc(db, 'users', user.uid, 'tasks', id);
-    try {
-      await updateDoc(taskRef, { archived: true });
-    } catch (e) {
-      console.warn('completePastTask failed', e);
-    }
-  })();
-};
+    (async () => {
+      if (!user) return;
+      const taskRef = doc(db, 'users', user.uid, 'tasks', id);
+      try {
+        await updateDoc(taskRef, { archived: true });
+      } catch (e) {
+        console.warn('completePastTask failed', e);
+      }
+    })();
+  };
 
 
   const renderGoal = () => (
     <View style={[styles.goalSection, isMobile && { marginBottom: 20, marginTop: 16 }]}>
       <Text style={styles.sectionTitle}>今回のテストの目標</Text>
-      <Text style={styles.goalText}>ここに目標を表示</Text>
+      <Text style={styles.goalText}>{testGoal || 'ここに目標を表示'}</Text>
     </View>
   );
-
 
 
   // ====== スマホ表示 ======
@@ -288,10 +495,13 @@ const toggleTask = (id: string) => {
               <TouchableOpacity
                 style={[styles.menuButton, { marginRight: 8 }]}
                 onPress={async () => {
+                  console.log('Homescreen: register pressed', { email });
                   try {
-                    await createUserWithEmailAndPassword(auth, email, password);
+                    const res = await createUserWithEmailAndPassword(auth, email, password);
+                    console.log('Homescreen: register success', { uid: res.user?.uid });
                   } catch (e) {
                     console.warn('register failed', e);
+                    Alert.alert('登録エラー', String(e));
                   }
                 }}
               >
@@ -300,10 +510,13 @@ const toggleTask = (id: string) => {
               <TouchableOpacity
                 style={styles.menuButton}
                 onPress={async () => {
+                  console.log('Homescreen: login pressed', { email });
                   try {
-                    await signInWithEmailAndPassword(auth, email, password);
+                    const res = await signInWithEmailAndPassword(auth, email, password);
+                    console.log('Homescreen: login success', { uid: res.user?.uid });
                   } catch (e) {
                     console.warn('login failed', e);
+                    Alert.alert('ログインエラー', String(e));
                   }
                 }}
               >
@@ -317,10 +530,13 @@ const toggleTask = (id: string) => {
             <TouchableOpacity
               style={styles.menuButton}
               onPress={async () => {
+                console.log('Homescreen: logout pressed');
                 try {
                   await signOut(auth);
+                  console.log('Homescreen: logout success');
                 } catch (e) {
                   console.warn('logout failed', e);
+                  Alert.alert('ログアウトエラー', String(e));
                 }
               }}
             >
@@ -347,15 +563,27 @@ const toggleTask = (id: string) => {
         </View>
 
         <View style={{ alignItems: 'center', marginBottom: 12 }}>
-          <TextInput
-            style={styles.dateInput}
-            value={testDateText}
-            onChangeText={setTestDateText}
-            placeholder="YYYY-MM-DD"
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.dateDisplay}>
+  {testDateText || '日付が未設定'}
+</Text>
+{diffLeft !== null && (
+  <Text style={styles.daysLeft}>テストまで {diffLeft}日</Text>
+)}
+
+            <TouchableOpacity style={[styles.addButton, { marginLeft: 8 }]} onPress={fetchUserDoc}>
+              <Text>再取得</Text>
+            </TouchableOpacity>
+          </View>
           {diffLeft !== null && (
             <Text style={styles.daysLeft}>テストまで {diffLeft}日</Text>
           )}
+          <Text style={{ fontSize: 12, color: '#666', marginTop: 6 }}>
+            raw date: {rawTestDateRaw ? (rawTestDateRaw.toString ? rawTestDateRaw.toString() : String(rawTestDateRaw)) : 'null'}
+          </Text>
+          <Text style={{ fontSize: 12, color: '#666' }}>
+            raw goal: {rawTestGoalRaw ?? 'null'}
+          </Text>
         </View>
 
         {renderGoal()}
@@ -422,6 +650,17 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
+
+
+  dateDisplay: {
+  borderWidth: 1,
+  padding: 8,
+  width: 140,
+  marginBottom: 4,
+  textAlign: 'center',
+  backgroundColor: '#f3f3f3',
+},
+
 
   menuRow: {
     flexDirection: "row",
@@ -512,6 +751,17 @@ const styles = StyleSheet.create({
   },
 
   column: { flex: 1, marginRight: 8 },
+
+  saveButton: {
+    marginLeft: 8,
+    backgroundColor: '#34C759',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
 });
 
 

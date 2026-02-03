@@ -1,11 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+export * from '../../lib/testDateStore';
 
-const KEY = 'test_date';
-
-export async function saveTestDate(dateText: string) {
-  await AsyncStorage.setItem(KEY, dateText);
-}
-
-export async function loadTestDate(): Promise<string | null> {
-  return await AsyncStorage.getItem(KEY);
+// This file lived under app/(lib) which is scanned by the router as a route.
+// Re-export the implementation from /lib and provide a default component
+// so that the router does not complain about missing default export.
+export default function _NotARoute() {
+  return null as any;
 }

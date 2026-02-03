@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth, db } from '../(lib)/firebase';
+import { auth, db } from '../../lib/firebase';
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState('');

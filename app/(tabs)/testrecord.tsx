@@ -1,11 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { auth, db } from '../../lib/firebase';
 
 type Subject = '数学' | '国語' | '理科' | '社会' | '英語';
 const subjects: Subject[] = ['数学', '国語', '理科', '社会', '英語'];
@@ -17,7 +21,6 @@ type Todo = {
 };
 
 type SubjectData = {
-  goalText: string;
   memoText: string;
   todos: Todo[];
 };
@@ -28,6 +31,100 @@ export default function TestOverviewScreen() {
 
   /* ===== テスト日付 ===== */
   const [testDateText, setTestDateText] = useState('2025-12-10');
+  const [goalText, setGoalText] = useState('');
+  const [user, setUser] = useState<any | null>(null);
+
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, u => {
+      setUser(u);
+    });
+    return () => unsubAuth();
+  }, []);
+
+  // normalize incoming date values (string | Timestamp | Date)
+  const normalizeDateField = (raw: any) => {
+    if (!raw) return '';
+    if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+    if (raw instanceof Timestamp) return raw.toDate().toISOString().slice(0, 10);
+    if (typeof raw === 'string') return raw;
+    // fallback
+    try {
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    } catch (e) {
+      return '';
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const userRef = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(userRef, snap => {
+      const data = snap.data();
+      if (data) {
+        if (data.testDate !== undefined) setTestDateText(normalizeDateField(data.testDate));
+        if (data.testGoal !== undefined) setGoalText(data.testGoal);
+      }
+    });
+    return () => unsub();
+  }, [user]);
+
+  const isValidYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  const saveTestInfo = async () => {
+    if (!user) {
+      Alert.alert('ログインが必要', 'テスト情報を保存するにはログインしてください。');
+      return;
+    }
+
+    if (testDateText && !isValidYMD(testDateText)) {
+      Alert.alert('日付形式が不正です', '日付は YYYY-MM-DD 形式で入力してください');
+      return;
+    }
+
+    try {
+      // store as normalized YYYY-MM-DD string, but don't overwrite existing fields when empty
+      const payload: any = {};
+      if (goalText && goalText.trim() !== '') payload.testGoal = goalText;
+      if (testDateText) payload.testDate = testDateText;
+      console.log('testrecord: saving user doc', JSON.stringify(payload));
+      if (Object.keys(payload).length === 0) {
+        Alert.alert('保存する内容がありません');
+        return;
+      }
+      await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      console.log('testrecord: saved doc snapshot', JSON.stringify(snap.data()));
+      console.log('testrecord: save succeeded');
+      Alert.alert('保存しました');
+    } catch (e) {
+      console.warn('saveTestInfo failed', e);
+      Alert.alert('保存に失敗しました');
+    }
+  };
+
+  const deleteTestInfo = () => {
+    if (!user) {
+      Alert.alert('ログインが必要', 'テスト情報を削除するにはログインしてください。');
+      return;
+    }
+    Alert.alert('削除', 'テスト情報を削除しますか？', [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: '削除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await setDoc(doc(db, 'users', user.uid), { testDate: '', testGoal: '' }, { merge: true });
+            setTestDateText('');
+            setGoalText('');
+          } catch (e) {
+            console.warn('deleteTestInfo failed', e);
+          }
+        },
+      },
+    ]);
+  };
 
   const testDate = useMemo(() => {
     const d = new Date(testDateText);
@@ -46,11 +143,11 @@ export default function TestOverviewScreen() {
   }, [testDate]);
 
   const [subjectData, setSubjectData] = useState<Record<Subject, SubjectData>>({
-    数学: { goalText: '', memoText: '', todos: [] },
-    国語: { goalText: '', memoText: '', todos: [] },
-    理科: { goalText: '', memoText: '', todos: [] },
-    社会: { goalText: '', memoText: '', todos: [] },
-    英語: { goalText: '', memoText: '', todos: [] },
+    数学: { memoText: '', todos: [] },
+    国語: { memoText: '', todos: [] },
+    理科: { memoText: '', todos: [] },
+    社会: { memoText: '', todos: [] },
+    英語: { memoText: '', todos: [] },
   });
 
   const current = subjectData[selectedSubject];
@@ -139,6 +236,9 @@ export default function TestOverviewScreen() {
               onChangeText={setTestDateText}
               placeholder="YYYY-MM-DD"
             />
+            <TouchableOpacity style={styles.saveButton} onPress={saveTestInfo}>
+              <Text style={{ color: '#fff' }}>保存</Text>
+            </TouchableOpacity>
             {daysLeft !== null && (
               <Text style={styles.daysLeft}>
                 残り {daysLeft} 日
@@ -152,17 +252,18 @@ export default function TestOverviewScreen() {
           <TextInput
             style={styles.goalInput}
             multiline
-            value={current.goalText}
-            onChangeText={text =>
-              setSubjectData(prev => ({
-                ...prev,
-                [selectedSubject]: {
-                  ...prev[selectedSubject],
-                  goalText: text,
-                },
-              }))
-            }
+            placeholder="今回のテストの目標"
+            value={goalText}
+            onChangeText={setGoalText}
           />
+          <View style={{ flexDirection: 'row', marginTop: 8, justifyContent: 'flex-end' }}>
+            <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12 }]} onPress={saveTestInfo}>
+              <Text>保存</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12, marginLeft: 8 }]} onPress={deleteTestInfo}>
+              <Text>削除</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -372,6 +473,16 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#eee',
     borderRadius: 8,
+  },
+
+  saveButton: {
+    marginLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#6B8BF6',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   mainArea: {
