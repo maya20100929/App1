@@ -8,7 +8,6 @@ import {
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
@@ -30,6 +29,14 @@ import {
 import { auth, db } from '../../lib/firebase';
 
 const HomeScreen: FC = () => {
+
+  type Task = {
+    id: string;
+    text: string;
+    done: boolean;
+    date: string;
+    archived?: boolean;
+  };
 
   const [user, setUser] = useState<any | null>(null);
   const [email, setEmail] = useState('');
@@ -95,23 +102,23 @@ const HomeScreen: FC = () => {
   }, [user]);
 
   useEffect(() => {
-  if (!user) return;
+    if (!user) return;
 
-  const userRef = doc(db, 'users', user.uid);
-  const unsubUser = onSnapshot(userRef, snap => {
-    const data = snap.data();
-    const raw = data?.testDate;
+    const userRef = doc(db, 'users', user.uid);
+    const unsubUser = onSnapshot(userRef, snap => {
+      const data = snap.data();
+      const raw = data?.testDate;
 
-    setRawTestDateRaw(raw);
-    setRawTestGoalRaw(data?.testGoal ?? null);
+      setRawTestDateRaw(raw);
+      setRawTestGoalRaw(data?.testGoal ?? null);
 
-    const normalized = normalizeDateField(raw);
-    setTestDateText(normalized);
-    setTestGoal(data?.testGoal ?? '');
-  });
+      const normalized = normalizeDateField(raw);
+      setTestDateText(normalized);
+      setTestGoal(data?.testGoal ?? '');
+    });
 
-  return () => unsubUser();
-}, [user]);
+    return () => unsubUser();
+  }, [user]);
 
 
   // manual fetch for debugging
@@ -135,7 +142,22 @@ const HomeScreen: FC = () => {
     }
   };
 
-  
+
+const normalizeDateField = (raw: any) => {
+    if (!raw) return '';
+    if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+    if ((raw as any).toDate && typeof (raw as any).toDate === 'function') {
+      try { return (raw as any).toDate().toISOString().slice(0, 10); } catch (e) { return ''; }
+    }
+    if (typeof raw === 'string') return raw;
+    try {
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    } catch (e) {
+      return '';
+    }
+  };
+
 
   useEffect(() => {
     const today = new Date();
@@ -164,16 +186,6 @@ const HomeScreen: FC = () => {
     });
   }, []);
 
-
-  type Task = {
-    id: string;
-    text: string;
-    done: boolean;
-    date: string;
-    archived?: boolean;
-  };
-
-
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
 
   const [pastTasks, setPastTasks] = useState<Task[]>([]);
@@ -190,55 +202,40 @@ const HomeScreen: FC = () => {
   const [rawTestDateRaw, setRawTestDateRaw] = useState<any>(null);
   const [rawTestGoalRaw, setRawTestGoalRaw] = useState<any>(null);
 
-  const normalizeDateField = (raw: any) => {
-    if (!raw) return '';
-    if (raw instanceof Date) return raw.toISOString().slice(0, 10);
-    if ((raw as any).toDate && typeof (raw as any).toDate === 'function') {
-      try { return (raw as any).toDate().toISOString().slice(0, 10); } catch (e) { return ''; }
-    }
-    if (typeof raw === 'string') return raw;
-    try {
-      const d = new Date(raw);
-      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
-    } catch (e) {
-      return '';
-    }
-  };
-
   const isValidYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
   const saveTestInfo = async () => {
-  console.log('🔥 saveTestInfo called', { testDateText, testGoal }); // ← ここ①
+    console.log('🔥 saveTestInfo called', { testDateText, testGoal }); // ← ここ①
 
-  if (!user) {
-    Alert.alert('ログインが必要', 'テスト情報を保存するにはログインしてください。');
-    return;
-  }
-
-  if (testDateText && !isValidYMD(testDateText)) {
-    Alert.alert('日付形式が不正です', '日付は YYYY-MM-DD 形式で入力してください');
-    return;
-  }
-
-  try {
-    const payload: any = {};
-    if (testGoal && testGoal.trim() !== '') payload.testGoal = testGoal;
-    if (testDateText) payload.testDate = testDateText;
-
-    console.log('🧾 payload', payload);
-
-    if (Object.keys(payload).length === 0) {
-      Alert.alert('保存する内容がありません');
+    if (!user) {
+      Alert.alert('ログインが必要', 'テスト情報を保存するにはログインしてください。');
       return;
     }
 
-    await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
-    Alert.alert('保存しました');
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : '保存に失敗しました';
-    Alert.alert('エラー', msg);
-  }
-};
+    if (testDateText && !isValidYMD(testDateText)) {
+      Alert.alert('日付形式が不正です', '日付は YYYY-MM-DD 形式で入力してください');
+      return;
+    }
+
+    try {
+      const payload: any = {};
+      if (testGoal && testGoal.trim() !== '') payload.testGoal = testGoal;
+      if (testDateText) payload.testDate = testDateText;
+
+      console.log('🧾 payload', payload);
+
+      if (Object.keys(payload).length === 0) {
+        Alert.alert('保存する内容がありません');
+        return;
+      }
+
+      await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+      Alert.alert('保存しました');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '保存に失敗しました';
+      Alert.alert('エラー', msg);
+    }
+  };
 
 
 
@@ -285,38 +282,6 @@ const HomeScreen: FC = () => {
     setEditingTaskId(null);
     setEditingText('');
   };
-
-  const deleteTask = (id: string) => {
-  console.log('🗑 deleteTask called', { id, userPresent: !!user });
-
-//   if (!user) {
-//     Alert.alert('ログインが必要', 'タスクを削除するにはログインしてください。');
-//     return;
-//   }
-
-//   Alert.alert('削除', 'このタスクを削除しますか？', [
-//     { text: 'キャンセル', style: 'cancel' },
-//     {
-//       text: '削除',
-//       style: 'destructive',
-//       onPress: async () => {
-//         try {
-//           const taskRef = doc(db, 'users', user.uid, 'tasks', id);
-//           await deleteDoc(taskRef);
-
-//           setPastTasks((prev) => prev.filter((t) => t.id !== id));
-
-//           console.log('🗑 delete succeeded', id);
-//         } catch (e) {
-//           console.warn('deleteTask failed', e);
-//           const msg = e instanceof Error ? e.message : JSON.stringify(e);
-//           Alert.alert('削除エラー', msg);   // ← ここで理由が見える
-//         }
-//       },
-//     },
-//   ]);
-// };
-
 
   const testDate = useMemo(() => {
     const d = new Date(testDateText);
@@ -382,10 +347,6 @@ const HomeScreen: FC = () => {
 
               <TouchableOpacity onPress={() => { setEditingTaskId(task.id); setEditingText(task.text); }} style={{ marginLeft: 8 }}>
                 <Text style={{ color: '#007AFF' }}>編集</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => deleteTask(task.id)} style={{ marginLeft: 8 }}>
-                <Text style={{ color: '#FF3B30' }}>削除</Text>
               </TouchableOpacity>
             </>
           )}
@@ -564,20 +525,15 @@ const HomeScreen: FC = () => {
 
         <View style={{ alignItems: 'center', marginBottom: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.dateDisplay}>
-  {testDateText || '日付が未設定'}
-</Text>
-{diffLeft !== null && (
-  <Text style={styles.daysLeft}>テストまで {diffLeft}日</Text>
-)}
+  <Text style={styles.dateDisplay}>
+    {testDateText || '日付が未設定'}
+  </Text>
 
-            <TouchableOpacity style={[styles.addButton, { marginLeft: 8 }]} onPress={fetchUserDoc}>
-              <Text>再取得</Text>
-            </TouchableOpacity>
-          </View>
-          {diffLeft !== null && (
-            <Text style={styles.daysLeft}>テストまで {diffLeft}日</Text>
-          )}
+  <TouchableOpacity style={[styles.addButton, { marginLeft: 8 }]} onPress={fetchUserDoc}>
+    <Text>再取得</Text>
+  </TouchableOpacity>
+</View>
+
           <Text style={{ fontSize: 12, color: '#666', marginTop: 6 }}>
             raw date: {rawTestDateRaw ? (rawTestDateRaw.toString ? rawTestDateRaw.toString() : String(rawTestDateRaw)) : 'null'}
           </Text>
@@ -653,13 +609,13 @@ const styles = StyleSheet.create({
 
 
   dateDisplay: {
-  borderWidth: 1,
-  padding: 8,
-  width: 140,
-  marginBottom: 4,
-  textAlign: 'center',
-  backgroundColor: '#f3f3f3',
-},
+    borderWidth: 1,
+    padding: 8,
+    width: 140,
+    marginBottom: 4,
+    textAlign: 'center',
+    backgroundColor: '#f3f3f3',
+  },
 
 
   menuRow: {
