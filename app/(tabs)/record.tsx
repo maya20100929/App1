@@ -1,5 +1,6 @@
 import { Picker } from '@react-native-picker/picker';
-import React, { useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     Alert,
     StyleSheet,
@@ -9,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord } from '../../lib/recordStore';
 
 /* =====================
    型定義
@@ -64,17 +66,71 @@ export default function RecordScreen() {
 
   const [material, setMaterial] = useState('');
   const [customMaterial, setCustomMaterial] = useState('');
+  const [customPointRate, setCustomPointRate] = useState('1');
 
   const [content, setContent] = useState('');
   const [amount, setAmount] = useState('');
 
-  const [editUnit, setEditUnit] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState('');
   const [customUnit, setCustomUnit] = useState('');
+  const [customPointPerUnit, setCustomPointPerUnit] = useState('1');
+
+  // カスタム教材と定義済み教材を合わせたリスト
+  const [allMaterials, setAllMaterials] = useState<{ name: string; rate: number }[]>([]);
+  // ユーザー設定の単位とポイント
+  const [unitOptions, setUnitOptions] = useState<{ unit: string; pointPerUnit: number }[]>([]);
 
   const rule = useMemo(
     () => subjectRules.find(r => r.subject === subject),
     [subject]
   );
+
+  // 科目変更時にカスタム教材とユニットルールを読み込む
+  useFocusEffect(
+    useCallback(() => {
+      loadMaterials();
+      loadUnitRules();
+    }, [subject])
+  );
+
+  const loadMaterials = async () => {
+    try {
+      // 定義済み教材
+      const baseMaterials = Object.entries(pointRules[subject]).map(([name, rate]) => ({
+        name,
+        rate,
+      }));
+
+      // カスタム教材を取得
+      const customMaterials = await getCustomMaterialsBySubject(subject);
+      const customMaterialsList = customMaterials.map(cm => ({
+        name: cm.material,
+        rate: cm.pointRate,
+      }));
+
+      // 合わせる（重複は除く）
+      const materialMap = new Map<string, number>();
+      baseMaterials.forEach(m => materialMap.set(m.name, m.rate));
+      customMaterialsList.forEach(m => materialMap.set(m.name, m.rate));
+
+      setAllMaterials(Array.from(materialMap).map(([name, rate]) => ({ name, rate })));
+    } catch (error) {
+      console.error('Failed to load materials:', error);
+    }
+  };
+
+  const loadUnitRules = async () => {
+    try {
+      const rules = await getUnitPointRulesBySubject(subject);
+      setUnitOptions(rules.map(r => ({ unit: r.unit, pointPerUnit: r.pointPerUnit })));
+      // 最初のユニットを選択
+      if (rules.length > 0) {
+        setSelectedUnit(rules[0].unit);
+      }
+    } catch (error) {
+      console.error('Failed to load unit rules:', error);
+    }
+  };
 
   /* =====================
      実際に使う教材名
@@ -85,55 +141,98 @@ export default function RecordScreen() {
   /* =====================
      実際に使う単位
   ===================== */
-  const actualUnit = editUnit ? customUnit : rule?.unit;
+  const actualUnit = customUnit || selectedUnit;
 
   /* =====================
-     ポイント計算
+     ポイント計算（単位ベース）
   ===================== */
   const point = useMemo(() => {
     const num = Number(amount);
-    if (!num || !actualMaterial) return 0;
+    if (!num || !actualUnit) return 0;
 
-    const rate = pointRules[subject][actualMaterial];
-    if (!rate) return 0;
+    const unitRule = unitOptions.find(u => u.unit === actualUnit);
+    if (!unitRule) return 0;
 
-    return Math.floor(num * rate);
-  }, [amount, actualMaterial, subject]);
+    return Math.floor(num * unitRule.pointPerUnit);
+  }, [amount, actualUnit, unitOptions]);
 
   /* =====================
      保存
   ===================== */
-  const handleSave = () => {
+  const handleSave = useCallback(async () => {
+    console.log('=== handleSave called ===');
+    console.log('Validation:', { actualMaterial, content, amount, actualUnit });
+    
     if (!actualMaterial || !content || !amount || !actualUnit) {
       Alert.alert('入力不足', 'すべて入力してください');
       return;
     }
 
-    const record = {
-      id: Date.now().toString(),
-      date: new Date().toISOString().slice(0, 10),
-      subject,
-      material: actualMaterial,
-      content,
-      amount: Number(amount),
-      unit: actualUnit,
-      point,
-    };
+    try {
+      const record = {
+        date: new Date().toISOString().slice(0, 10),
+        subject,
+        material: actualMaterial,
+        content,
+        amount: Number(amount),
+        unit: actualUnit,
+        point,
+      };
 
-    console.log('保存データ', record);
+      // recordを保存（FirebaseまたはAsyncStorageにフォールバック）
+      try {
+        const recordId = await saveRecord(record);
+        console.log('記録保存成功:', { recordId, record });
+      } catch (saveError) {
+        console.error('記録保存失敗:', saveError);
+        throw saveError;
+      }
 
-    Alert.alert(
-      '保存しました',
-      `${subject} / ${actualMaterial}\n${amount}${actualUnit} → ${point} pt`
-    );
+      // カスタム教材の場合は保存
+      if (material === '__custom__' && customPointRate) {
+        try {
+          await saveCustomMaterial(subject, customMaterial, Number(customPointRate));
+          console.log('カスタム教材保存成功');
+        } catch (cmError) {
+          console.error('カスタム教材保存失敗:', cmError);
+        }
+      }
 
-    setMaterial('');
-    setCustomMaterial('');
-    setContent('');
-    setAmount('');
-    setEditUnit(false);
-    setCustomUnit('');
-  };
+      Alert.alert(
+        '保存しました',
+        `${subject} / ${actualMaterial}\n${amount}${actualUnit} → ${point} pt`
+      );
+
+      // フォームをリセット
+      setMaterial('');
+      setCustomMaterial('');
+      setCustomPointRate('1');
+      setContent('');
+      setAmount('');
+      setCustomUnit('');
+      setCustomPointPerUnit('1');
+
+      // 教材リストを再読み込み後、最初のユニットを選択
+      try {
+        const units = await getUnitPointRulesBySubject(subject);
+        if (units.length > 0) {
+          setSelectedUnit(units[0].unit);
+        } else {
+          setSelectedUnit('');
+        }
+      } catch (error) {
+        console.error('Failed to load unit rules:', error);
+      }
+
+      // 記録画面に戻す（oldrecordのuseFocusEffectが発動して自動更新される）
+      setTimeout(() => {
+        router.push('/(tabs)/oldrecord');
+      }, 500);
+    } catch (error) {
+      console.error('Save error:', error);
+      Alert.alert('エラー', '保存に失敗しました');
+    }
+  }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, point, customMaterial]);
 
   return (
     <View style={styles.container}>
@@ -154,20 +253,31 @@ export default function RecordScreen() {
       <View style={styles.pickerWrapper}>
         <Picker selectedValue={material} onValueChange={setMaterial}>
           <Picker.Item label="選択してください" value="" />
-          {Object.keys(pointRules[subject]).map(m => (
-            <Picker.Item key={m} label={m} value={m} />
+          {allMaterials.map(m => (
+            <Picker.Item key={m.name} label={m.name} value={m.name} />
           ))}
           <Picker.Item label="＋ 教材を追加 / 編集" value="__custom__" />
         </Picker>
       </View>
 
       {material === '__custom__' && (
-        <TextInput
-          style={styles.input}
-          placeholder="教材名を入力"
-          value={customMaterial}
-          onChangeText={setCustomMaterial}
-        />
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="教材名を入力"
+            value={customMaterial}
+            onChangeText={setCustomMaterial}
+          />
+          <Text style={styles.label}>ポイント倍率</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="decimal-pad"
+            inputMode="decimal"
+            placeholder="例：1 1.2 0.5"
+            value={customPointRate}
+            onChangeText={setCustomPointRate}
+          />
+        </>
       )}
 
       {/* 内容 */}
@@ -179,6 +289,47 @@ export default function RecordScreen() {
         onChangeText={setContent}
       />
 
+      {/* 単位選択 */}
+      <Text style={styles.label}>単位</Text>
+      {unitOptions.length > 0 ? (
+        <View style={styles.pickerWrapper}>
+          <Picker selectedValue={selectedUnit} onValueChange={setSelectedUnit}>
+            <Picker.Item label="選択してください" value="" />
+            {unitOptions.map(u => (
+              <Picker.Item key={u.unit} label={`${u.unit} (${u.pointPerUnit}pt)`} value={u.unit} />
+            ))}
+          </Picker>
+        </View>
+      ) : (
+        <Text style={styles.noDataText}>設定画面で単位を設定してください</Text>
+      )}
+
+      {/* カスタム単位 */}
+      <View style={styles.switchRow}>
+        <Text>カスタム単位を使う</Text>
+        <Switch value={!!customUnit} onValueChange={val => setCustomUnit(val ? '' : '')} />
+      </View>
+
+      {customUnit !== undefined && customUnit !== '' && (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="単位名を入力（例：セット、分）"
+            value={customUnit}
+            onChangeText={setCustomUnit}
+          />
+          <Text style={styles.label}>この単位の1あたりのポイント</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="decimal-pad"
+            inputMode="decimal"
+            placeholder="例：1 2 0.5"
+            value={customPointPerUnit}
+            onChangeText={setCustomPointPerUnit}
+          />
+        </>
+      )}
+
       {/* 量 */}
       <Text style={styles.label}>
         量（{actualUnit ?? '単位'}）
@@ -189,21 +340,6 @@ export default function RecordScreen() {
         value={amount}
         onChangeText={setAmount}
       />
-
-      {/* 単位編集 */}
-      <View style={styles.switchRow}>
-        <Text>単位を編集する</Text>
-        <Switch value={editUnit} onValueChange={setEditUnit} />
-      </View>
-
-      {editUnit && (
-        <TextInput
-          style={styles.input}
-          placeholder="例：ページ、分、セット"
-          value={customUnit}
-          onChangeText={setCustomUnit}
-        />
-      )}
 
       {/* ポイント */}
       <View style={styles.pointBox}>
@@ -235,6 +371,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     marginBottom: 4,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 16,
   },
   pickerWrapper: {
     borderWidth: 1,

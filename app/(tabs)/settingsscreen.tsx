@@ -1,15 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Modal,
+    Picker,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import { getUnitPointRulesBySubject, saveUnitPointRule } from '../../lib/recordStore';
 
 export default function SettingsScreen() {
   const [searchText, setSearchText] = useState('');
@@ -19,6 +22,32 @@ export default function SettingsScreen() {
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [userName, setUserName] = useState('');
   const [grade, setGrade] = useState('');
+
+  // 単位設定用
+  const [showUnitSettings, setShowUnitSettings] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<'数学' | '英語' | '国語' | '理科' | '社会'>('数学');
+  const [unitSettings, setUnitSettings] = useState<{ unit: string; pointPerUnit: number }[]>([]);
+  const [newUnit, setNewUnit] = useState('');
+  const [newPointPerUnit, setNewPointPerUnit] = useState('');
+
+  const subjects = ['数学', '英語', '国語', '理科', '社会'] as const;
+  const unitOptions = ['問', 'ページ', '語', 'セット', '分', 'その他'];  // 単位選択肢
+
+  // 単位設定を読み込む
+  const loadUnitSettings = async (subject: typeof selectedSubject) => {
+    try {
+      const rules = await getUnitPointRulesBySubject(subject);
+      setUnitSettings(rules.map(r => ({ unit: r.unit, pointPerUnit: r.pointPerUnit })));
+    } catch (error) {
+      console.error('Failed to load unit settings:', error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUnitSettings(selectedSubject);
+    }, [selectedSubject])
+  );
 
   const saveUserProfile = async () => {
     await AsyncStorage.setItem('userName', userName);
@@ -75,9 +104,29 @@ export default function SettingsScreen() {
     ]);
   };
 
+  // 単位を追加
+  const handleAddUnit = async () => {
+    if (!newUnit || !newPointPerUnit) {
+      Alert.alert('入力不足', '単位名とポイントを入力してください');
+      return;
+    }
+
+    try {
+      await saveUnitPointRule(selectedSubject, newUnit, Number(newPointPerUnit));
+      Alert.alert('保存しました', `${newUnit}: ${newPointPerUnit}pt`);
+      setNewUnit('');
+      setNewPointPerUnit('');
+      await loadUnitSettings(selectedSubject);
+    } catch (error) {
+      console.error('Save error:', error);
+      Alert.alert('エラー', '保存に失敗しました');
+    }
+  };
+
   // --- 追加: 設定項目リスト ---
   const settingsItems = [
     { section: 'プロフィール', label: '名前・学年を設定', type: 'profile' },
+    { section: 'ポイント設定', label: 'ポイント計算ルール', type: 'unit' },
     { section: 'テーマカラー', label: 'テーマカラー', type: 'color' },
     { section: '利用履歴', label: '最終ログイン', type: 'text' },
     { section: '通知', label: '通知オン/オフ（後で実装）', type: 'text' },
@@ -110,6 +159,99 @@ export default function SettingsScreen() {
 
       {/* --- 変更: 既存のUIを配列で置き換え --- */}
       {filteredItems.map((item, index) => {
+        if (item.type === 'unit') {
+          // ポイント設定
+          return (
+            <View key={index}>
+              <Text style={styles.sectionTitle}>ポイント計算ルール</Text>
+              <View style={styles.box}>
+                <TouchableOpacity
+                  onPress={() => setShowUnitSettings(!showUnitSettings)}
+                  style={styles.itemButton}
+                >
+                  <Text style={styles.itemText}>
+                    {showUnitSettings ? '▼ 単位ごとのポイントを設定' : '▶ 単位ごとのポイントを設定'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showUnitSettings && (
+                  <View style={styles.unitSettingsContainer}>
+                    {/* 科目選択 */}
+                    <Text style={styles.label}>科目</Text>
+                    <View style={styles.pickerWrapper}>
+                      <Picker
+                        selectedValue={selectedSubject}
+                        onValueChange={setSelectedSubject}
+                      >
+                        {subjects.map(s => (
+                          <Picker.Item key={s} label={s} value={s} />
+                        ))}
+                      </Picker>
+                    </View>
+
+                    {/* 既存の単位設定 */}
+                    {unitSettings.length > 0 && (
+                      <>
+                        <Text style={styles.label}>現在の設定：</Text>
+                        {unitSettings.map((setting, idx) => (
+                          <View key={idx} style={styles.unitItem}>
+                            <Text style={styles.unitText}>
+                              {setting.unit}: {setting.pointPerUnit} pt
+                            </Text>
+                          </View>
+                        ))}
+                      </>
+                    )}
+
+                    {/* 新規追加 */}
+                    <Text style={[styles.label, { marginTop: 16 }]}>新しい単位を追加</Text>
+                    <Text style={styles.label}>単位を選択</Text>
+                    <View style={styles.pickerWrapper}>
+                      <Picker
+                        selectedValue={newUnit}
+                        onValueChange={setNewUnit}
+                      >
+                        <Picker.Item label="選択してください" value="" />
+                        {unitOptions.map(u => (
+                          <Picker.Item key={u} label={u} value={u} />
+                        ))}
+                      </Picker>
+                    </View>
+
+                    {newUnit === 'その他' && (
+                      <>
+                        <Text style={styles.label}>カスタム単位名</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="例：回、節、章"
+                          value={newUnit === 'その他' ? '' : newUnit}
+                          onChangeText={val => setNewUnit(val)}
+                        />
+                      </>
+                    )}
+
+                    <Text style={styles.label}>1あたりのポイント</Text>
+                    <TextInput
+                      style={styles.input}
+                      keyboardType="decimal-pad"
+                      inputMode="decimal"
+                      placeholder="例：1 0.2 2"
+                      value={newPointPerUnit}
+                      onChangeText={setNewPointPerUnit}
+                    />
+                    <TouchableOpacity
+                      onPress={handleAddUnit}
+                      style={styles.modalButton}
+                    >
+                      <Text style={styles.modalButtonText}>追加</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        }
+
         if (item.type === 'color') {
           // テーマカラー
           return (
@@ -402,4 +544,43 @@ const styles = StyleSheet.create({
   modalText: { fontSize: 16, lineHeight: 24 },
   modalButton: { marginTop: 12, backgroundColor: '#007AFF', borderRadius: 8, padding: 12, alignItems: 'center' },
   modalButtonText: { color: '#fff', fontSize: 16 },
+
+  // 単位設定用
+  unitSettingsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    fontSize: 14,
+  },
+  unitItem: {
+    backgroundColor: '#f0f0f0',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  unitText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });

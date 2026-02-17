@@ -1,35 +1,21 @@
-import { router } from 'expo-router';
-import React, { useMemo } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import { getAllRecords, StudyRecord, Subject } from '../../../lib/recordStore';
 
 /* =====================
-   型
+   仮データ（初期値）
 ===================== */
-type Subject = '数学' | '英語' | '国語' | '理科' | '社会';
-
-type StudyRecord = {
-  id: string;
-  date: string;
-  subject: Subject;
-  material: string;
-  content: string;
-  amount: number;
-  unit: string;
-  point: number;
-};
-
-/* =====================
-   仮データ
-===================== */
-const records: StudyRecord[] = [
+const initialRecords: StudyRecord[] = [
   {
     id: '1',
     date: '2025-12-20',
@@ -77,12 +63,74 @@ export default function OldRecordScreen() {
   const { width } = useWindowDimensions();
   const isPC = width >= 768;
 
+  const [records, setRecords] = useState<StudyRecord[]>(initialRecords);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 画面フォーカス時にFirebaseからデータを取得
+  useFocusEffect(
+    useCallback(() => {
+      loadRecords();
+    }, [])
+  );
+
+  const loadRecords = async () => {
+    try {
+      setIsLoading(true);
+      let allRecords: StudyRecord[] = [];
+
+      // Firebaseからデータ取得
+      try {
+        const firebaseRecords = await getAllRecords();
+        if (firebaseRecords && firebaseRecords.length > 0) {
+          allRecords = firebaseRecords;
+          console.log('Firebase記録数:', firebaseRecords.length);
+        }
+      } catch (fbError) {
+        console.error('Firebase読込失敗:', fbError);
+      }
+
+      // AsyncStorageからバックアップデータも取得
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const recordKeys = keys.filter(k => k.startsWith('record_'));
+        console.log('AsyncStorage記録数:', recordKeys.length);
+
+        for (const key of recordKeys) {
+          const value = await AsyncStorage.getItem(key);
+          if (value) {
+            const record = JSON.parse(value);
+            // Firebaseにないデータのみ追加
+            if (!allRecords.some(r => r.id === record.id || (r.date === record.date && r.content === record.content))) {
+              allRecords.push({
+                id: key,
+                ...record,
+              });
+            }
+          }
+        }
+      } catch (asError) {
+        console.error('AsyncStorage読込失敗:', asError);
+      }
+
+      if (allRecords.length > 0) {
+        setRecords(allRecords);
+      } else {
+        setRecords(initialRecords);
+      }
+    } catch (error) {
+      console.error('Failed to load records:', error);
+      setRecords(initialRecords);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   /* =====================
      集計
   ===================== */
   const totalPoint = useMemo(
     () => records.reduce((sum, r) => sum + r.point, 0),
-    []
+    [records]
   );
 
   const dailyPoints = useMemo(() => {
@@ -90,8 +138,10 @@ export default function OldRecordScreen() {
     records.forEach(r => {
       map[r.date] = (map[r.date] || 0) + r.point;
     });
-    return Object.entries(map).map(([date, point]) => ({ date, point }));
-  }, []);
+    return Object.entries(map)
+      .map(([date, point]) => ({ date, point }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [records]);
 
   const subjectPoints = useMemo(() => {
     const map: Record<Subject, number> = {
@@ -105,7 +155,7 @@ export default function OldRecordScreen() {
       map[r.subject] += r.point;
     });
     return map;
-  }, []);
+  }, [records]);
 
   const materialRanking = useMemo(() => {
     const map: Record<string, number> = {};
@@ -113,7 +163,7 @@ export default function OldRecordScreen() {
       map[r.material] = (map[r.material] || 0) + r.point;
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, []);
+  }, [records]);
 
   const pieData = Object.entries(subjectPoints) as [Subject, number][];
 
@@ -121,82 +171,97 @@ export default function OldRecordScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>今までの記録</Text>
 
-      <View style={styles.totalBox}>
-        <Text style={styles.totalText}>累計ポイント：{totalPoint} pt</Text>
-      </View>
+      {isLoading ? (
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      ) : (
+        <>
+          <View style={styles.totalBox}>
+            <Text style={styles.totalText}>累計ポイント：{totalPoint} pt</Text>
+          </View>
 
-      <View
-        style={[
-          styles.cardsContainer,
-          isPC ? styles.pcLayout : styles.mobileLayout,
-        ]}
-      >
-        {/* 日別 */}
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => router.push('/oldrecord/daily')}
-        >
-          <Text style={styles.sectionTitle}>日別 推移</Text>
-          <Svg width={280} height={120}>
-            <Polyline
-              points={dailyPoints
-                .map((d, i) => `${i * 80 + 20},${100 - d.point * 2}`)
-                .join(' ')}
-              fill="none"
-              stroke="#6C7BFA"
-              strokeWidth="2"
-            />
-            <Line x1="10" y1="100" x2="290" y2="100" stroke="#ccc" />
-          </Svg>
-        </TouchableOpacity>
+          <View
+            style={[
+              styles.cardsContainer,
+              isPC ? styles.pcLayout : styles.mobileLayout,
+            ]}
+          >
+            {/* 日別 */}
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => {
+                // 最新の日付を取得して遷移
+                const latestDate = dailyPoints.length > 0 
+                  ? dailyPoints[dailyPoints.length - 1].date 
+                  : new Date().toISOString().slice(0, 10);
+                router.push({
+                  pathname: '/oldrecord/daily',
+                  params: { date: latestDate },
+                });
+              }}
+            >
+              <Text style={styles.sectionTitle}>日別 推移</Text>
+              <Svg width={280} height={120}>
+                <Polyline
+                  points={dailyPoints
+                    .map((d, i) => `${i * 80 + 20},${100 - d.point * 2}`)
+                    .join(' ')}
+                  fill="none"
+                  stroke="#6C7BFA"
+                  strokeWidth="2"
+                />
+                <Line x1="10" y1="100" x2="290" y2="100" stroke="#ccc" />
+              </Svg>
+            </TouchableOpacity>
 
-        {/* 科目別 */}
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => router.push('/oldrecord/subject')}
-        >
-          <Text style={styles.sectionTitle}>科目別</Text>
-          <Svg width={200} height={200} viewBox="0 0 200 200">
-            {(() => {
-              let startAngle = 0;
-              return pieData.map(([subject, point]) => {
-                const ratio = point / totalPoint;
-                const angle = ratio * Math.PI * 2;
+            {/* 科目別 */}
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push('/oldrecord/subject')}
+            >
+              <Text style={styles.sectionTitle}>科目別</Text>
+              <Svg width={200} height={200} viewBox="0 0 200 200">
+                {(() => {
+                  let startAngle = 0;
+                  return pieData.map(([subject, point]) => {
+                    const ratio = point / totalPoint;
+                    const angle = ratio * Math.PI * 2;
 
-                const circle = (
-                  <Circle
-                    key={subject}
-                    cx="100"
-                    cy="100"
-                    r="60"
-                    stroke={subjectColors[subject]}
-                    strokeWidth="30"
-                    fill="none"
-                    strokeDasharray={`${angle * 100} ${Math.PI * 2 * 100}`}
-                    strokeDashoffset={-startAngle * 100}
-                  />
-                );
+                    const circle = (
+                      <Circle
+                        key={subject}
+                        cx="100"
+                        cy="100"
+                        r="60"
+                        stroke={subjectColors[subject]}
+                        strokeWidth="30"
+                        fill="none"
+                        strokeDasharray={`${angle * 100} ${Math.PI * 2 * 100}`}
+                        strokeDashoffset={-startAngle * 100}
+                      />
+                    );
 
-                startAngle += angle;
-                return circle;
-              });
-            })()}
-          </Svg>
-        </TouchableOpacity>
+                    startAngle += angle;
+                    return circle;
+                  });
+                })()}
+              </Svg>
+            </TouchableOpacity>
 
-        {/* 教材 */}
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => router.push('/oldrecord/material')}
-        >
-          <Text style={styles.sectionTitle}>教材ランキング</Text>
-          {materialRanking.map(([m, p], i) => (
-            <Text key={m}>
-              {i + 1}. {m}：{p} pt
-            </Text>
-          ))}
-        </TouchableOpacity>
-      </View>
+            {/* 教材 */}
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push('/oldrecord/material')}
+            >
+              <Text style={styles.sectionTitle}>教材ランキング</Text>
+              {materialRanking.map(([m, p], i) => (
+                <Text key={m}>
+                  {i + 1}. {m}：{p} pt
+                </Text>
+              ))}
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -207,6 +272,7 @@ export default function OldRecordScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
+  loadingText: { fontSize: 16, textAlign: 'center', marginTop: 20 },
 
   totalBox: {
     backgroundColor: '#eef0ff',

@@ -107,12 +107,14 @@ const HomeScreen: FC = () => {
     const userRef = doc(db, 'users', user.uid);
     const unsubUser = onSnapshot(userRef, snap => {
       const data = snap.data();
+      console.log('Homescreen: onSnapshot user doc', { uid: user.uid, data });
       const raw = data?.testDate;
 
       setRawTestDateRaw(raw);
       setRawTestGoalRaw(data?.testGoal ?? null);
 
       const normalized = normalizeDateField(raw);
+      console.log('Homescreen: normalized date', { raw, normalized });
       setTestDateText(normalized);
       setTestGoal(data?.testGoal ?? '');
     });
@@ -283,10 +285,15 @@ const normalizeDateField = (raw: any) => {
     setEditingText('');
   };
 
-  const testDate = useMemo(() => {
-    const d = new Date(testDateText);
-    return isNaN(d.getTime()) ? null : d;
-  }, [testDateText]);
+const testDate = useMemo(() => {
+  if (!testDateText) return null;
+
+  const [y, m, d] = testDateText.split('-').map(Number);
+  if (!y || !m || !d) return null;
+
+  const date = new Date(y, m - 1, d); // ← 月は -1 する
+  return isNaN(date.getTime()) ? null : date;
+}, [testDateText]);
 
   const diffLeft = useMemo(() => {
     if (!testDate) return null;

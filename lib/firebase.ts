@@ -13,16 +13,26 @@ const firebaseConfig = {
   measurementId: "G-Y85YJLNB65"
 };
 
+console.log('[firebase] Initializing Firebase with config:', firebaseConfig.projectId);
+
 const app = initializeApp(firebaseConfig)
 
 let analytics: Analytics | undefined
 
+// Web環境でのみanalyticsを初期化
 if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app)
+  try {
+    analytics = getAnalytics(app)
+    console.log('[firebase] Analytics initialized');
+  } catch (error) {
+    console.error('[firebase] Failed to initialize analytics:', error);
+  }
 }
 
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+console.log('[firebase] Auth and Firestore initialized');
 
 export default app
 export { analytics, auth, db };
