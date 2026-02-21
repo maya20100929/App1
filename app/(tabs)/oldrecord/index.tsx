@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Polyline, Path } from 'react-native-svg';
+import Svg, { Line, Path, Polyline } from 'react-native-svg';
 import { getAllRecords, StudyRecord, Subject } from '../../../lib/recordStore';
 
 /* =====================

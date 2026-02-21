@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -235,7 +236,7 @@ export default function RecordScreen() {
   }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, point, customMaterial]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.title}>勉強を記録</Text>
 
       {/* 科目 */}
@@ -349,7 +350,7 @@ export default function RecordScreen() {
       <TouchableOpacity style={styles.button} onPress={handleSave}>
         <Text style={styles.buttonText}>保存</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 

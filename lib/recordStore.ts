@@ -92,36 +92,102 @@ export async function saveRecord(
 }
 
 /**
- * すべての学習記録を取得（現在のユーザーのみ）
+ * すべての学習記録を取得（Firebase と AsyncStorage の両方）
  */
 export async function getAllRecords(): Promise<StudyRecord[]> {
   const userId = getCurrentUserId();
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('userId', '==', userId)
-  );
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  } as StudyRecord));
+  let allRecords: StudyRecord[] = [];
+
+  // Firebase から取得
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('userId', '==', userId)
+    );
+    const querySnapshot = await getDocs(q);
+    allRecords = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as StudyRecord));
+    console.log('[recordStore] Firebase records loaded:', allRecords.length);
+  } catch (error) {
+    console.error('[recordStore] Error loading from Firebase:', error);
+  }
+
+  // AsyncStorage から取得（Firebase にないデータのみ追加）
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const recordKeys = keys.filter(k => k.startsWith('record_'));
+    
+    for (const key of recordKeys) {
+      const value = await AsyncStorage.getItem(key);
+      if (value) {
+        const record = JSON.parse(value);
+        // Firebaseにないデータのみ追加
+        if (!allRecords.some(r => r.id === record.id || (r.date === record.date && r.content === record.content && r.material === record.material))) {
+          allRecords.push({
+            id: key,
+            ...record,
+          });
+        }
+      }
+    }
+    console.log('[recordStore] After merging AsyncStorage:', allRecords.length);
+  } catch (error) {
+    console.error('[recordStore] Error loading from AsyncStorage:', error);
+  }
+
+  return allRecords;
 }
 
 /**
- * 特定の日付の学習記録を取得（現在のユーザーのみ）
+ * 特定の日付の学習記録を取得（Firebase と AsyncStorage の両方）
  */
 export async function getRecordsByDate(date: string): Promise<StudyRecord[]> {
   const userId = getCurrentUserId();
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('date', '==', date),
-    where('userId', '==', userId)
-  );
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  } as StudyRecord));
+  let allRecords: StudyRecord[] = [];
+
+  // Firebase から取得
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('date', '==', date),
+      where('userId', '==', userId)
+    );
+    const querySnapshot = await getDocs(q);
+    allRecords = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as StudyRecord));
+    console.log('[recordStore] Firebase records for date:', date, 'count:', allRecords.length);
+  } catch (error) {
+    console.error('[recordStore] Error loading from Firebase:', error);
+  }
+
+  // AsyncStorage から取得（該当日付で Firebase にないデータのみ追加）
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const recordKeys = keys.filter(k => k.startsWith('record_'));
+    
+    for (const key of recordKeys) {
+      const value = await AsyncStorage.getItem(key);
+      if (value) {
+        const record = JSON.parse(value);
+        // 日付が一致して、Firebaseにないデータのみ追加
+        if (record.date === date && !allRecords.some(r => r.id === record.id || (r.date === record.date && r.content === record.content && r.material === record.material))) {
+          allRecords.push({
+            id: key,
+            ...record,
+          });
+        }
+      }
+    }
+    console.log('[recordStore] After merging AsyncStorage for date:', date, 'total:', allRecords.length);
+  } catch (error) {
+    console.error('[recordStore] Error loading from AsyncStorage:', error);
+  }
+
+  return allRecords;
 }
 
 /**
