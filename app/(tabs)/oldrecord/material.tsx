@@ -26,11 +26,17 @@ export default function MaterialDetailScreen() {
   };
 
   const materialRanking = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, { point: number; entries: StudyRecord[] }> = {};
     records.forEach(r => {
-      map[r.material] = (map[r.material] || 0) + r.point;
+      if (!map[r.material]) {
+        map[r.material] = { point: 0, entries: [] };
+      }
+      map[r.material].point += r.point;
+      map[r.material].entries.push(r);
     });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    return Object.entries(map)
+      .map(([material, { point, entries }]) => ({ material, point, entries }))
+      .sort((a, b) => b.point - a.point);
   }, [records]);
 
   if (isLoading) {
@@ -49,12 +55,24 @@ export default function MaterialDetailScreen() {
         <Text style={styles.noDataText}>データがありません</Text>
       ) : (
         <View style={styles.box}>
-          {materialRanking.map(([material, point], index) => (
+          {materialRanking.map(({ material, point, entries }, index) => (
             <View key={material} style={styles.rankItem}>
-              <Text style={styles.rankNumber}>{index + 1}.</Text>
-              <View style={styles.rankContent}>
-                <Text style={styles.materialName}>{material}</Text>
-                <Text style={styles.materialPoint}>{point} pt</Text>
+              <View style={styles.rankHeader}>
+                <Text style={styles.rankNumber}>{index + 1}.</Text>
+                <View style={styles.rankContent}>
+                  <Text style={styles.materialName}>{material}</Text>
+                  <Text style={styles.materialPoint}>{point} pt</Text>
+                </View>
+              </View>
+              <View style={styles.entriesBox}>
+                {entries.map((entry) => (
+                  <View key={entry.id} style={styles.entryItem}>
+                    <Text style={styles.entrySubject}>{entry.subject}</Text>
+                    <Text style={styles.entryContent}>{entry.content}</Text>
+                    <Text style={styles.entryAmount}>{entry.amount} {entry.unit} → {entry.point} pt</Text>
+                    <Text style={styles.entryDate}>{entry.date}</Text>
+                  </View>
+                ))}
               </View>
             </View>
           ))}
@@ -77,11 +95,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   rankItem: {
-    flexDirection: 'row',
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+  },
+  rankHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   rankNumber: {
@@ -94,4 +114,19 @@ const styles = StyleSheet.create({
   rankContent: { flex: 1 },
   materialName: { fontSize: 15, fontWeight: '600' },
   materialPoint: { fontSize: 13, color: '#666', marginTop: 4 },
+  entriesBox: {
+    marginTop: 8,
+    paddingLeft: 40,
+  },
+  entryItem: {
+    paddingVertical: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: '#ddd',
+    paddingLeft: 8,
+    marginVertical: 4,
+  },
+  entrySubject: { fontSize: 12, fontWeight: '600', color: '#666' },
+  entryContent: { fontSize: 12, color: '#333', marginTop: 2 },
+  entryAmount: { fontSize: 11, color: '#888', marginTop: 2 },
+  entryDate: { fontSize: 10, color: '#aaa', marginTop: 2 },
 });

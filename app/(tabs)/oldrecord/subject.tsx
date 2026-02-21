@@ -36,17 +36,24 @@ export default function SubjectDetailScreen() {
   };
 
   const subjectPoints = useMemo(() => {
-    const map: Record<Subject, number> = {
-      数学: 0,
-      英語: 0,
-      国語: 0,
-      理科: 0,
-      社会: 0,
+    const map: Record<Subject, { point: number; entries: StudyRecord[] }> = {
+      数学: { point: 0, entries: [] },
+      英語: { point: 0, entries: [] },
+      国語: { point: 0, entries: [] },
+      理科: { point: 0, entries: [] },
+      社会: { point: 0, entries: [] },
     };
     records.forEach(r => {
-      map[r.subject] += r.point;
+      map[r.subject].point += r.point;
+      map[r.subject].entries.push(r);
     });
-    return Object.entries(map).filter(([, point]) => point > 0);
+    return Object.entries(map)
+      .filter(([, { point }]) => point > 0)
+      .map(([subject, { point, entries }]) => ({
+        subject: subject as Subject,
+        point,
+        entries,
+      }));
   }, [records]);
 
   if (isLoading) {
@@ -65,17 +72,29 @@ export default function SubjectDetailScreen() {
         <Text style={styles.noDataText}>データがありません</Text>
       ) : (
         <View>
-          {subjectPoints.map(([subject, point]) => (
-            <View key={subject} style={styles.subjectItem}>
-              <View
-                style={[
-                  styles.colorIndicator,
-                  { backgroundColor: subjectColors[subject as Subject] },
-                ]}
-              />
-              <View style={styles.subjectContent}>
-                <Text style={styles.subjectName}>{subject}</Text>
-                <Text style={styles.subjectPoint}>{point} pt</Text>
+          {subjectPoints.map(({ subject, point, entries }) => (
+            <View key={subject} style={styles.subjectItemWrapper}>
+              <View style={styles.subjectItem}>
+                <View
+                  style={[
+                    styles.colorIndicator,
+                    { backgroundColor: subjectColors[subject] },
+                  ]}
+                />
+                <View style={styles.subjectContent}>
+                  <Text style={styles.subjectName}>{subject}</Text>
+                  <Text style={styles.subjectPoint}>{point} pt</Text>
+                </View>
+              </View>
+              <View style={styles.entriesBox}>
+                {entries.map((entry) => (
+                  <View key={entry.id} style={styles.entryItem}>
+                    <Text style={styles.entryMaterial}>{entry.material}</Text>
+                    <Text style={styles.entryContent}>{entry.content}</Text>
+                    <Text style={styles.entryAmount}>{entry.amount} {entry.unit} → {entry.point} pt</Text>
+                    <Text style={styles.entryDate}>{entry.date}</Text>
+                  </View>
+                ))}
               </View>
             </View>
           ))}
@@ -90,19 +109,39 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
   noDataText: { fontSize: 14, color: '#999', textAlign: 'center', marginTop: 20 },
+  subjectItemWrapper: {
+    marginVertical: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
   subjectItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 12,
-    marginVertical: 8,
-    backgroundColor: '#fafafa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
   },
   colorIndicator: { width: 8, height: 40, borderRadius: 4, marginRight: 12 },
   subjectContent: { flex: 1 },
   subjectName: { fontSize: 16, fontWeight: 'bold' },
   subjectPoint: { fontSize: 14, color: '#666', marginTop: 4 },
+  entriesBox: {
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  entryItem: {
+    paddingVertical: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: '#ddd',
+    paddingLeft: 8,
+    marginVertical: 4,
+  },
+  entryMaterial: { fontSize: 12, fontWeight: '600', color: '#666' },
+  entryContent: { fontSize: 12, color: '#333', marginTop: 2 },
+  entryAmount: { fontSize: 11, color: '#888', marginTop: 2 },
+  entryDate: { fontSize: 10, color: '#aaa', marginTop: 2 },
 });

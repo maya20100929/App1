@@ -62,7 +62,6 @@ export async function saveRecord(
 ): Promise<string> {
   const userId = getCurrentUserId();
   console.log('[recordStore] saveRecord called with userId:', userId);
-  console.log('[recordStore] record data:', record);
   
   // ユーザーが認証されている場合はFirebaseに保存
   if (userId !== 'anonymous') {
@@ -76,10 +75,6 @@ export async function saveRecord(
       return docRef.id;
     } catch (error) {
       console.error('[recordStore] Error saving to Firebase:', error);
-      console.error('[recordStore] Firebase error details:', {
-        code: (error as any).code,
-        message: (error as any).message,
-      });
       // Firebaseエラーの場合はAsyncStorageにフォールバック
     }
   }

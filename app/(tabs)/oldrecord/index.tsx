@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import Svg, { Circle, Line, Polyline, Path } from 'react-native-svg';
 import { getAllRecords, StudyRecord, Subject } from '../../../lib/recordStore';
 
 /* =====================
@@ -97,6 +97,7 @@ export default function OldRecordScreen() {
 
         for (const key of recordKeys) {
           const value = await AsyncStorage.getItem(key);
+          console.log('[oldrecord] AsyncStorage key:', key, 'value:', value);
           if (value) {
             const record = JSON.parse(value);
             // Firebaseにないデータのみ追加
@@ -108,6 +109,8 @@ export default function OldRecordScreen() {
             }
           }
         }
+
+        console.log('[oldrecord] allRecords after merging AsyncStorage:', allRecords);
       } catch (asError) {
         console.error('AsyncStorage読込失敗:', asError);
       }
@@ -221,27 +224,44 @@ export default function OldRecordScreen() {
               <Text style={styles.sectionTitle}>科目別</Text>
               <Svg width={200} height={200} viewBox="0 0 200 200">
                 {(() => {
-                  let startAngle = 0;
-                  return pieData.map(([subject, point]) => {
-                    const ratio = point / totalPoint;
-                    const angle = ratio * Math.PI * 2;
+                  const cx = 100;
+                  const cy = 100;
+                  const radius = 60;
+                  let currentAngle = -Math.PI / 2; // 12 o'clock position
 
-                    const circle = (
-                      <Circle
+                  return pieData.map(([subject, point]) => {
+                    if (point === 0) return null;
+
+                    const sliceAngle = (point / totalPoint) * 2 * Math.PI;
+                    const startAngle = currentAngle;
+                    const endAngle = currentAngle + sliceAngle;
+
+                    // Arc path calculation
+                    const x1 = cx + radius * Math.cos(startAngle);
+                    const y1 = cy + radius * Math.sin(startAngle);
+                    const x2 = cx + radius * Math.cos(endAngle);
+                    const y2 = cy + radius * Math.sin(endAngle);
+
+                    const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+                    const pathData = [
+                      `M ${cx} ${cy}`,
+                      `L ${x1} ${y1}`,
+                      `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                      'Z',
+                    ].join(' ');
+
+                    currentAngle = endAngle;
+
+                    return (
+                      <Path
                         key={subject}
-                        cx="100"
-                        cy="100"
-                        r="60"
-                        stroke={subjectColors[subject]}
-                        strokeWidth="30"
-                        fill="none"
-                        strokeDasharray={`${angle * 100} ${Math.PI * 2 * 100}`}
-                        strokeDashoffset={-startAngle * 100}
+                        d={pathData}
+                        fill={subjectColors[subject]}
+                        stroke="#fff"
+                        strokeWidth="2"
                       />
                     );
-
-                    startAngle += angle;
-                    return circle;
                   });
                 })()}
               </Svg>

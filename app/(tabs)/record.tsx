@@ -2,13 +2,13 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    Alert,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord } from '../../lib/recordStore';
 
@@ -226,7 +226,7 @@ export default function RecordScreen() {
 
       // 記録画面に戻す（oldrecordのuseFocusEffectが発動して自動更新される）
       setTimeout(() => {
-        router.push('/(tabs)/oldrecord');
+        router.push('/oldrecord');
       }, 500);
     } catch (error) {
       console.error('Save error:', error);
