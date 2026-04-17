@@ -230,29 +230,32 @@ export default function OldRecordScreen() {
    styles
 ===================== */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
+  container: { flex: 1, padding: 16, backgroundColor: '#fff3ff' },
+  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', color: '#aaacf5ff', marginBottom: 10 },
 
   totalBox: {
-    backgroundColor: '#eef0ff',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#f7f3ff',
+    padding: 16,
+    borderRadius: 20,
     marginVertical: 16,
+    borderWidth: 1,
+    borderColor: '#aaacf5ff',
   },
-  totalText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
+  totalText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: '#6d3f7f' },
 
-  cardsContainer: { gap: 16 },
+  cardsContainer: {},
   pcLayout: { flexDirection: 'row' },
   mobileLayout: { flexDirection: 'column' },
 
   card: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fafafa',
+    borderColor: '#aaacf5ff',
+    borderRadius: 18,
+    padding: 16,
+    backgroundColor: '#faf4ff',
+    marginBottom: 14,
   },
 
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#aaacf5ff' },
 });

@@ -470,12 +470,14 @@ export default function SettingsScreen() {
 
 // --- スタイルはそのまま ---
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 24, backgroundColor: '#fff3ff' },
 
   searchInput: {
-    backgroundColor: '#f2f2f2',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#fbf5ff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#aaacf5ff',
+    padding: 14,
     marginBottom: 20,
     fontSize: 16,
   },
@@ -485,8 +487,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 8,
+    color: '#aaacf5ff',
   },
-
   colorRow: { flexDirection: 'row', marginBottom: 16 },
 
   colorDot: {
@@ -495,54 +497,55 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#ddd',
   },
 
   selectedDot: {
     borderWidth: 3,
-    borderColor: '#007AFF',
+    borderColor: '#aaacf5ff',
   },
 
   box: {
-    backgroundColor: '#f7f7f7',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: '#f8f1ff',
+    padding: 18,
+    borderRadius: 18,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#aaacf5ff',
   },
 
-  boxText: { fontSize: 16 },
-
+  boxText: { fontSize: 16, color: '#aaacf5ff' },
   itemButton: {
     paddingVertical: 12,
   },
 
   itemText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#6d3f7f',
   },
 
   accountButton: {
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#aaacf5ff',
+    padding: 14,
+    borderRadius: 18,
     alignItems: 'center',
     marginBottom: 12,
   },
   accountButtonText: { color: '#fff', fontSize: 16 },
 
   deleteButton: {
-    backgroundColor: '#ff3b30',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#aaacf5ff',
+    padding: 14,
+    borderRadius: 18,
     alignItems: 'center',
   },
   deleteButtonText: { color: '#fff', fontSize: 16 },
 
-  modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { margin: 20, backgroundColor: 'white', borderRadius: 8, padding: 20, maxHeight: '80%' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.25)' },
+  modalContent: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#6d3f7f' },
   modalText: { fontSize: 16, lineHeight: 24 },
-  modalButton: { marginTop: 12, backgroundColor: '#007AFF', borderRadius: 8, padding: 12, alignItems: 'center' },
+  modalButton: { marginTop: 12, backgroundColor: '#aaacf5ff', borderRadius: 18, padding: 12, alignItems: 'center' },
   modalButtonText: { color: '#fff', fontSize: 16 },
 
   // 単位設定用
@@ -550,37 +553,41 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: '#e5dbef',
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 12,
+    color: '#5b2f6f',
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderColor: '#f0e7ff',
+    borderRadius: 18,
     marginBottom: 16,
     overflow: 'hidden',
+    backgroundColor: '#fbf5ff',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#f0e7ff',
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 12,
     fontSize: 14,
+    backgroundColor: '#fbf5ff',
   },
   unitItem: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f6eff8',
     padding: 12,
-    borderRadius: 6,
+    borderRadius: 14,
     marginBottom: 8,
   },
   unitText: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#6d3f7f',
   },
 });

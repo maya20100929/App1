@@ -2,14 +2,14 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord } from '../../lib/recordStore';
 
@@ -360,37 +360,41 @@ export default function RecordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#fff',
+    padding: 18,
+    backgroundColor: '#fff3ff',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 24,
+    color: '#6d3f7f',
   },
   label: {
     fontSize: 14,
     marginBottom: 4,
+    color: '#5b2f6f',
   },
   noDataText: {
     fontSize: 14,
-    color: '#999',
+    color: '#7a4b78',
     marginBottom: 16,
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderColor: '#e8e2ff',
+    borderRadius: 18,
     marginBottom: 16,
     overflow: 'hidden',
+    backgroundColor: '#fff3ff',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#e9e1ff',
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 16,
+    backgroundColor: '#fbf7ff',
   },
   switchRow: {
     flexDirection: 'row',
@@ -399,24 +403,31 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pointBox: {
-    backgroundColor: '#eef0ff',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#faf4ff',
+    padding: 16,
+    borderRadius: 18,
     marginBottom: 24,
   },
   pointText: {
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+    color: '#6e3c7a',
   },
   button: {
-    backgroundColor: '#6b6ff5',
-    padding: 14,
-    borderRadius: 8,
+    backgroundColor: '#aaacf5ff',
+    padding: 16,
+    borderRadius: 20,
     alignItems: 'center',
+    shadowColor: '#d6d8ff',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 3,
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });

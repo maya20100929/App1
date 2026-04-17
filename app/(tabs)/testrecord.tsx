@@ -2,12 +2,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 
@@ -407,46 +407,57 @@ export default function TestOverviewScreen() {
 
 /* ===== styles ===== */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 18, backgroundColor: '#fff3ff' },
 
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
 
-  testTitle: { fontSize: 18, fontWeight: 'bold' },
+  testTitle: { fontSize: 22, fontWeight: 'bold', color: '#aaacf5ff' },
 
-  dateRow: { marginTop: 6 },
+  dateRow: { marginTop: 10 },
 
   dateInput: {
     borderWidth: 1,
-    padding: 6,
-    width: 140,
+    borderColor: '#aaacf5ff',
+    borderRadius: 18,
+    backgroundColor: '#fbf7ff',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    width: 160,
   },
-
   daysLeft: {
-    marginTop: 4,
+    marginTop: 6,
     fontSize: 14,
     fontWeight: 'bold',
+    color: '#8a3a82',
   },
 
   goalBox: {
     width: '40%',
     borderWidth: 1,
-    padding: 8,
+    borderColor: '#aaacf5ff',
+    borderRadius: 20,
+    padding: 12,
+    backgroundColor: '#f7f3ff',
   },
 
-  goalLabel: { fontSize: 12 },
+  goalLabel: { fontSize: 12, color: '#aaacf5ff' },
 
   goalInput: {
-    minHeight: 60,
+    minHeight: 68,
     textAlignVertical: 'top',
+    borderRadius: 16,
+    backgroundColor: '#fbf7ff',
+    padding: 10,
   },
 
   divider: {
     height: 1,
-    backgroundColor: '#000',
-    marginVertical: 16,
+    backgroundColor: '#e8e2ff',
+    marginVertical: 18,
   },
 
   subjectRow: {
@@ -457,30 +468,31 @@ const styles = StyleSheet.create({
   subjectTabs: { flexDirection: 'row' },
 
   subjectTab: {
-    padding: 8,
-    backgroundColor: '#eee',
-    borderRadius: 12,
-    marginRight: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#f0edff',
+    borderRadius: 16,
+    marginRight: 8,
   },
 
-  subjectTabActive: { backgroundColor: '#ddd' },
+  subjectTabActive: { backgroundColor: '#aaacf5ff' },
 
-  subjectText: { fontSize: 12 },
+  subjectText: { fontSize: 13, color: '#aaacf5ff' },
 
-  subjectTextActive: { fontWeight: 'bold' },
+  subjectTextActive: { fontWeight: 'bold', color: '#aaacf5ff' },
 
   addButton: {
-    padding: 8,
-    backgroundColor: '#eee',
-    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#aaacf5ff',
+    borderRadius: 18,
   },
 
   saveButton: {
     marginLeft: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#6B8BF6',
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#aaacf5ff',
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -488,7 +500,7 @@ const styles = StyleSheet.create({
   mainArea: {
     flex: 1,
     flexDirection: 'row',
-    marginTop: 16,
+    marginTop: 18,
   },
 
   progressArea: {
@@ -497,43 +509,45 @@ const styles = StyleSheet.create({
   },
 
   progressBarBg: {
-    width: 80,
-    height: 8,
-    backgroundColor: '#eee',
-    borderRadius: 4,
+    width: 90,
+    height: 10,
+    backgroundColor: '#f2efff',
+    borderRadius: 6,
   },
 
   progressBarFill: {
-    height: 8,
-    backgroundColor: '#b9b5f5',
-    borderRadius: 4,
+    height: 10,
+    backgroundColor: '#aaacf5ff',
+    borderRadius: 6,
   },
-
   contentArea: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 18,
   },
 
   todoBox: {
     borderWidth: 1,
-    padding: 8,
-    marginBottom: 12,
+    borderColor: '#aaacf5ff',
+    padding: 14,
+    marginBottom: 14,
+    borderRadius: 18,
+    backgroundColor: '#f8f1ff',
   },
 
-  boxTitle: { fontSize: 12, marginBottom: 4 },
+  boxTitle: { fontSize: 13, marginBottom: 6, color: '#aaacf5ff' },
 
   todoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
   },
 
   checkbox: {
     fontSize: 18,
-    marginRight: 8,
+    marginRight: 10,
   },
 
-  todoInput: { flex: 1 },
+  todoInput: { flex: 1, paddingVertical: 8, color: '#4A1D4D' },
 
   editButtons: {
     flexDirection: 'row',
@@ -544,11 +558,17 @@ const styles = StyleSheet.create({
   memoBox: {
     flex: 1,
     borderWidth: 1,
-    padding: 8,
+    borderColor: '#aaacf5ff',
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: '#fff3ff',
   },
 
   memoInput: {
     flex: 1,
     textAlignVertical: 'top',
+    padding: 10,
+    backgroundColor: '#fbf7ff',
+    borderRadius: 16,
   },
 });
