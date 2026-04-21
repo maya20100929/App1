@@ -1,16 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    Picker,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  // Picker,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { getUnitPointRulesBySubject, saveUnitPointRule } from '../../lib/recordStore';
 
@@ -156,14 +157,13 @@ export default function SettingsScreen() {
         value={searchText}
         onChangeText={setSearchText}
       />
+      
 
-      {/* --- 変更: 既存のUIを配列で置き換え --- */}
       {filteredItems.map((item, index) => {
         if (item.type === 'unit') {
-          // ポイント設定
           return (
             <View key={index}>
-              <Text style={styles.sectionTitle}>ポイント計算ルール</Text>
+              <Text style={styles.sectionTitle}>{item.label}</Text>
               <View style={styles.box}>
                 <TouchableOpacity
                   onPress={() => setShowUnitSettings(!showUnitSettings)}
@@ -177,7 +177,7 @@ export default function SettingsScreen() {
                 {showUnitSettings && (
                   <View style={styles.unitSettingsContainer}>
                     {/* 科目選択 */}
-                    <Text style={styles.label}>科目</Text>
+                    <Text style={styles.label}>科目を選択</Text>
                     <View style={styles.pickerWrapper}>
                       <Picker
                         selectedValue={selectedSubject}
@@ -189,62 +189,48 @@ export default function SettingsScreen() {
                       </Picker>
                     </View>
 
-                    {/* 既存の単位設定 */}
-                    {unitSettings.length > 0 && (
-                      <>
-                        <Text style={styles.label}>現在の設定：</Text>
-                        {unitSettings.map((setting, idx) => (
-                          <View key={idx} style={styles.unitItem}>
-                            <Text style={styles.unitText}>
-                              {setting.unit}: {setting.pointPerUnit} pt
-                            </Text>
+                    <Text style={styles.label}>現在の設定（数値をタップして編集）：</Text>
+
+                    <View style={styles.tableCard}>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                        <View style={styles.simpleTable}>
+                          {/* 上段：単位名 */}
+                          <View style={styles.simpleRow}>
+                            {unitSettings.map((setting, idx) => (
+                              <View key={`u-${idx}`} style={styles.simpleCell}>
+                                <Text style={styles.unitLabelText}>{setting.unit}</Text>
+                              </View>
+                            ))}
                           </View>
-                        ))}
-                      </>
-                    )}
 
-                    {/* 新規追加 */}
-                    <Text style={[styles.label, { marginTop: 16 }]}>新しい単位を追加</Text>
-                    <Text style={styles.label}>単位を選択</Text>
-                    <View style={styles.pickerWrapper}>
-                      <Picker
-                        selectedValue={newUnit}
-                        onValueChange={setNewUnit}
-                      >
-                        <Picker.Item label="選択してください" value="" />
-                        {unitOptions.map(u => (
-                          <Picker.Item key={u} label={u} value={u} />
-                        ))}
-                      </Picker>
+                          {/* 下段：ポイント入力 */}
+                          <View style={styles.simpleRow}>
+                            {unitSettings.map((setting, idx) => (
+                              <View key={`p-${idx}`} style={styles.simpleCell}>
+                                <TextInput
+                                  style={styles.tableInput}
+                                  keyboardType="decimal-pad"
+                                  value={String(setting.pointPerUnit)}
+                                  onChangeText={(val) => {
+                                    const newSettings = [...unitSettings];
+                                    newSettings[idx].pointPerUnit = Number(val);
+                                    setUnitSettings(newSettings);
+                                  }}
+                                  onBlur={async () => {
+                                    const setting = unitSettings[idx];
+                                    await saveUnitPointRule(selectedSubject, setting.unit, setting.pointPerUnit);
+                                  }}
+                                />
+                                <Text style={styles.ptSuffixSmall}>pt</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      </ScrollView>
                     </View>
-
-                    {newUnit === 'その他' && (
-                      <>
-                        <Text style={styles.label}>カスタム単位名</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="例：回、節、章"
-                          value={newUnit === 'その他' ? '' : newUnit}
-                          onChangeText={val => setNewUnit(val)}
-                        />
-                      </>
-                    )}
-
-                    <Text style={styles.label}>1あたりのポイント</Text>
-                    <TextInput
-                      style={styles.input}
-                      keyboardType="decimal-pad"
-                      inputMode="decimal"
-                      placeholder="例：1 0.2 2"
-                      value={newPointPerUnit}
-                      onChangeText={setNewPointPerUnit}
-                    />
-                    <TouchableOpacity
-                      onPress={handleAddUnit}
-                      style={styles.modalButton}
-                    >
-                      <Text style={styles.modalButtonText}>追加</Text>
-                    </TouchableOpacity>
+                    <Text style={{ fontSize: 10, color: '#aaa', marginTop: 8, textAlign: 'right' }}>
+                      ※数値を変えると自動で保存されます
+                    </Text>
                   </View>
                 )}
               </View>
@@ -590,4 +576,49 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#6d3f7f',
   },
+
+
+  tableCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e5dbef',
+    overflow: 'hidden',
+    padding: 10,
+  },
+  simpleTable: {
+    flexDirection: 'column',
+  },
+  simpleRow: {
+    flexDirection: 'row',
+  },
+  simpleCell: {
+    minWidth: 80,
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#f0e7ff', // 縦の区切り線
+  },
+  unitLabelText: {
+    fontSize: 12,
+    color: '#aaacf5',
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  tableInput: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6d3f7f',
+    textAlign: 'center',
+    padding: 0, // 余計な余白を消す
+    minWidth: 40,
+  },
+  ptSuffixSmall: {
+    fontSize: 10,
+    color: '#6d3f7f',
+    marginLeft: 2,
+  },
 });
+

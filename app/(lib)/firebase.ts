@@ -32,3 +32,5 @@ const db = getFirestore(app);
 
 export { analytics, app, auth, db };
 
+export default app;
+
