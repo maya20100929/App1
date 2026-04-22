@@ -28,7 +28,7 @@ export default function SettingsScreen() {
   const [showUnitSettings, setShowUnitSettings] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<'数学' | '英語' | '国語' | '理科' | '社会'>('数学');
   const [unitSettings, setUnitSettings] = useState<{ unit: string; pointPerUnit: number }[]>([]);
-  const [newUnit, setNewUnit] = useState('');
+  const [newUnit, setNewUnit] = useState('問');
   const [newPointPerUnit, setNewPointPerUnit] = useState('');
 
   const subjects = ['数学', '英語', '国語', '理科', '社会'] as const;
@@ -196,34 +196,46 @@ export default function SettingsScreen() {
                         <View style={styles.simpleTable}>
                           {/* 上段：単位名 */}
                           <View style={styles.simpleRow}>
-                            {unitSettings.map((setting, idx) => (
+                            {unitOptions.map((unit, idx) => (
                               <View key={`u-${idx}`} style={styles.simpleCell}>
-                                <Text style={styles.unitLabelText}>{setting.unit}</Text>
+                                <Text style={styles.unitLabelText}>{unit}</Text>
                               </View>
                             ))}
                           </View>
 
                           {/* 下段：ポイント入力 */}
                           <View style={styles.simpleRow}>
-                            {unitSettings.map((setting, idx) => (
-                              <View key={`p-${idx}`} style={styles.simpleCell}>
-                                <TextInput
-                                  style={styles.tableInput}
-                                  keyboardType="decimal-pad"
-                                  value={String(setting.pointPerUnit)}
-                                  onChangeText={(val) => {
-                                    const newSettings = [...unitSettings];
-                                    newSettings[idx].pointPerUnit = Number(val);
-                                    setUnitSettings(newSettings);
-                                  }}
-                                  onBlur={async () => {
-                                    const setting = unitSettings[idx];
-                                    await saveUnitPointRule(selectedSubject, setting.unit, setting.pointPerUnit);
-                                  }}
-                                />
-                                <Text style={styles.ptSuffixSmall}>pt</Text>
-                              </View>
-                            ))}
+                            {unitOptions.map((unit, idx) => {
+                              const existingSetting = unitSettings.find(s => s.unit === unit);
+                              return (
+                                <View key={`p-${idx}`} style={styles.simpleCell}>
+                                  <TextInput
+                                    style={styles.tableInput}
+                                    keyboardType="decimal-pad"
+                                    value={existingSetting ? String(existingSetting.pointPerUnit) : ''}
+                                    placeholder="-"
+                                    placeholderTextColor="#ccc"
+                                    onChangeText={(val) => {
+                                      if (val) {
+                                        const newSettings = unitSettings.filter(s => s.unit !== unit);
+                                        newSettings.push({ unit, pointPerUnit: Number(val) });
+                                        setUnitSettings(newSettings);
+                                      } else {
+                                        const newSettings = unitSettings.filter(s => s.unit !== unit);
+                                        setUnitSettings(newSettings);
+                                      }
+                                    }}
+                                    onBlur={async () => {
+                                      const setting = unitSettings.find(s => s.unit === unit);
+                                      if (setting) {
+                                        await saveUnitPointRule(selectedSubject, setting.unit, setting.pointPerUnit);
+                                      }
+                                    }}
+                                  />
+                                  <Text style={styles.ptSuffixSmall}>pt</Text>
+                                </View>
+                              );
+                            })}
                           </View>
                         </View>
                       </ScrollView>
@@ -593,7 +605,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   simpleCell: {
-    minWidth: 80,
+    flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 5,
     alignItems: 'center',
@@ -605,7 +617,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#aaacf5',
     fontWeight: 'bold',
-    marginBottom: 5,
   },
   tableInput: {
     fontSize: 18,
