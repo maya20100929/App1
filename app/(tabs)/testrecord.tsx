@@ -2,12 +2,13 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 
@@ -150,6 +151,9 @@ export default function TestOverviewScreen() {
     英語: { memoText: '', todos: [] },
   });
 
+  const { width } = useWindowDimensions();
+  const isMobile = width <= 600;
+
   const current = subjectData[selectedSubject];
 
   /* ===== 進捗 ===== */
@@ -225,8 +229,8 @@ export default function TestOverviewScreen() {
   return (
     <View style={styles.container}>
       {/* 上段 */}
-      <View style={styles.headerRow}>
-        <View>
+      <View style={[styles.headerRow, isMobile && styles.headerRowMobile]}>
+        <View style={isMobile ? styles.fullWidth : undefined}>
           <Text style={styles.testTitle}>次のテスト</Text>
 
           <View style={styles.dateRow}>
@@ -237,17 +241,17 @@ export default function TestOverviewScreen() {
               placeholder="YYYY-MM-DD"
             />
             <TouchableOpacity style={styles.saveButton} onPress={saveTestInfo}>
-              <Text style={{ color: '#fff' }}>保存</Text>
+              <Text style={styles.buttonText}>保存</Text>
             </TouchableOpacity>
             {daysLeft !== null && (
               <Text style={styles.daysLeft}>
-                残り {daysLeft} 日
+                残り <Text style={styles.daysLeftNumber}>{daysLeft}</Text> 日
               </Text>
             )}
           </View>
         </View>
 
-        <View style={styles.goalBox}>
+        <View style={[styles.goalBox, isMobile && styles.goalBoxMobile]}>
           <Text style={styles.goalLabel}>目標</Text>
           <TextInput
             style={styles.goalInput}
@@ -258,10 +262,10 @@ export default function TestOverviewScreen() {
           />
           <View style={{ flexDirection: 'row', marginTop: 8, justifyContent: 'flex-end' }}>
             <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12 }]} onPress={saveTestInfo}>
-              <Text>保存</Text>
+              <Text style={styles.buttonText}>保存</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12, marginLeft: 8 }]} onPress={deleteTestInfo}>
-              <Text>削除</Text>
+              <Text style={styles.buttonText}>削除</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -270,7 +274,7 @@ export default function TestOverviewScreen() {
       <View style={styles.divider} />
 
       {/* 教科 + ボタン */}
-      <View style={styles.subjectRow}>
+      <View style={[styles.subjectRow, isMobile && styles.subjectRowMobile]}>
         <View style={styles.subjectTabs}>
           {subjects.map(sub => (
             <TouchableOpacity
@@ -293,27 +297,12 @@ export default function TestOverviewScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
-        <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={addTodo}
-          >
-            <Text>追加</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.addButton, { marginLeft: 8 }]}
-            onPress={() => setIsEditMode(p => !p)}
-          >
-            <Text>{isEditMode ? '完了' : '編集'}</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* メイン */}
-      <View style={styles.mainArea}>
+      <View style={[styles.mainArea, isMobile && styles.mainAreaMobile]}>
         {/* 左 */}
-        <View style={styles.progressArea}>
+        <View style={[styles.progressArea, isMobile && styles.progressAreaMobile]}>
           <Text>進捗</Text>
           <View style={styles.progressBarBg}>
             <View
@@ -329,9 +318,25 @@ export default function TestOverviewScreen() {
         </View>
 
         {/* 右 */}
-        <View style={styles.contentArea}>
-          <View style={styles.todoBox}>
-            <Text style={styles.boxTitle}>やる事</Text>
+        <View style={[styles.contentArea, isMobile && styles.contentAreaMobile]}>
+          <View style={[styles.todoBox, isMobile && styles.sectionBoxMobile]}>
+            <View style={styles.todoHeader}>
+              <Text style={styles.boxTitle}>やる事</Text>
+              <View style={styles.todoActionRow}>
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={addTodo}
+                >
+                  <Text style={styles.buttonText}>追加</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.addButton, styles.todoActionButton]}
+                  onPress={() => setIsEditMode(p => !p)}
+                >
+                  <Text style={styles.buttonText}>{isEditMode ? '完了' : '編集'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
             {current.todos.map((todo, index) => (
               <View key={todo.id} style={styles.todoItem}>
@@ -382,7 +387,7 @@ export default function TestOverviewScreen() {
             ))}
           </View>
 
-          <View style={styles.memoBox}>
+          <View style={[styles.memoBox, isMobile && styles.sectionBoxMobile]}>
             <TextInput
               style={styles.memoInput}
               multiline
@@ -415,9 +420,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
 
+  headerRowMobile: {
+    flexDirection: 'column',
+  },
+
   testTitle: { fontSize: 22, fontWeight: 'bold', color: '#aaacf5ff' },
 
-  dateRow: { marginTop: 10 },
+  dateRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
 
   dateInput: {
     borderWidth: 1,
@@ -435,6 +449,12 @@ const styles = StyleSheet.create({
     color: '#8a3a82',
   },
 
+  daysLeftNumber: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#8a3a82',
+  },
+
   goalBox: {
     width: '40%',
     borderWidth: 1,
@@ -442,6 +462,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 12,
     backgroundColor: '#f7f3ff',
+  },
+
+  goalBoxMobile: {
+    width: '100%',
+    marginTop: 18,
   },
 
   goalLabel: { fontSize: 12, color: '#aaacf5ff' },
@@ -465,11 +490,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
+  subjectRowMobile: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+
   subjectTabs: { flexDirection: 'row' },
 
   subjectTab: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     backgroundColor: '#f0edff',
     borderRadius: 16,
     marginRight: 8,
@@ -477,24 +507,30 @@ const styles = StyleSheet.create({
 
   subjectTabActive: { backgroundColor: '#aaacf5ff' },
 
-  subjectText: { fontSize: 13, color: '#aaacf5ff' },
+  subjectText: { fontSize: 12, color: '#aaacf5ff' },
 
-  subjectTextActive: { fontWeight: 'bold', color: '#aaacf5ff' },
+  subjectTextActive: { fontWeight: 'bold', color: '#fff' },
 
   addButton: {
-    padding: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     backgroundColor: '#aaacf5ff',
-    borderRadius: 18,
+    borderRadius: 16,
   },
 
   saveButton: {
     marginLeft: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: '#aaacf5ff',
-    borderRadius: 18,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 
   mainArea: {
@@ -503,9 +539,18 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
 
+  mainAreaMobile: {
+    flexDirection: 'column',
+  },
+
   progressArea: {
     width: 120,
     alignItems: 'center',
+  },
+
+  progressAreaMobile: {
+    width: '100%',
+    marginBottom: 18,
   },
 
   progressBarBg: {
@@ -525,6 +570,18 @@ const styles = StyleSheet.create({
     marginLeft: 18,
   },
 
+  contentAreaMobile: {
+    marginLeft: 0,
+  },
+
+  fullWidth: {
+    width: '100%',
+  },
+
+  sectionBoxMobile: {
+    width: '100%',
+  },
+
   todoBox: {
     borderWidth: 1,
     borderColor: '#aaacf5ff',
@@ -535,6 +592,22 @@ const styles = StyleSheet.create({
   },
 
   boxTitle: { fontSize: 13, marginBottom: 6, color: '#aaacf5ff' },
+
+  todoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  todoActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  todoActionButton: {
+    marginLeft: 0,
+  },
 
   todoItem: {
     flexDirection: 'row',
