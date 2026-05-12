@@ -240,8 +240,8 @@ export default function OldRecordScreen() {
 
                     const pathData = [
                       `M ${cx} ${cy}`,
-                      `L ${x1} ${y1}`,
-                      `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                      `L ${cx} ${cy}`,
+                      `A ${radius} ${radius} 0 ${largeArc} 1 ${cx} ${cy}`,
                       'Z',
                     ].join(' ');
 

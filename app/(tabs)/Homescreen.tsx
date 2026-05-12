@@ -428,7 +428,7 @@ const HomeScreen: FC = () => {
           <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/notification')}>
             <ThemedText style={styles.menuText}>通知</ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/settings')}>
+          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/settingsscreen')}>
             <ThemedText style={styles.menuText}>設定</ThemedText>
           </TouchableOpacity>
         </ThemedView>
@@ -463,7 +463,7 @@ const HomeScreen: FC = () => {
         <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/notification')}>
           <ThemedText style={styles.menuText}>通知</ThemedText>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/settings')}>
+        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/settingsscreen')}>
           <ThemedText style={styles.menuText}>設定</ThemedText>
         </TouchableOpacity>
       </ThemedView>

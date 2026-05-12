@@ -208,19 +208,25 @@ export default function SettingsScreen() {
                           <View style={styles.simpleRow}>
                             {unitOptions.map((unit, idx) => {
                               const existingSetting = unitSettings.find(s => s.unit === unit);
+                              const displayValue = existingSetting && !isNaN(existingSetting.pointPerUnit) 
+                                ? String(existingSetting.pointPerUnit) 
+                                : '';
                               return (
                                 <View key={`p-${idx}`} style={styles.simpleCell}>
                                   <TextInput
                                     style={styles.tableInput}
                                     keyboardType="decimal-pad"
-                                    value={existingSetting ? String(existingSetting.pointPerUnit) : ''}
+                                    value={displayValue}
                                     placeholder="-"
                                     placeholderTextColor="#ccc"
                                     onChangeText={(val) => {
                                       if (val) {
-                                        const newSettings = unitSettings.filter(s => s.unit !== unit);
-                                        newSettings.push({ unit, pointPerUnit: Number(val) });
-                                        setUnitSettings(newSettings);
+                                        const numVal = parseFloat(val);
+                                        if (!isNaN(numVal)) {
+                                          const newSettings = unitSettings.filter(s => s.unit !== unit);
+                                          newSettings.push({ unit, pointPerUnit: numVal });
+                                          setUnitSettings(newSettings);
+                                        }
                                       } else {
                                         const newSettings = unitSettings.filter(s => s.unit !== unit);
                                         setUnitSettings(newSettings);
@@ -228,7 +234,7 @@ export default function SettingsScreen() {
                                     }}
                                     onBlur={async () => {
                                       const setting = unitSettings.find(s => s.unit === unit);
-                                      if (setting) {
+                                      if (setting && !isNaN(setting.pointPerUnit)) {
                                         await saveUnitPointRule(selectedSubject, setting.unit, setting.pointPerUnit);
                                       }
                                     }}

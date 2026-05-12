@@ -1,13 +1,13 @@
+import { ThemedText } from '@/components/themed-text';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 /* =====================
