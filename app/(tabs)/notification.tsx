@@ -3,10 +3,11 @@ import { router } from 'expo-router';
 import React, { FC, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { ThemedText } from '@/components/themed-text';
+import { Fonts } from '@/constants/theme';
 import {
     ScrollView,
     StyleSheet,
-    Text,
     TextInput,
     TouchableOpacity,
     View,
@@ -137,7 +138,7 @@ const NotificationScreen: FC = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>通知予定</Text>
+      <ThemedText style={styles.title}>通知予定</ThemedText>
 
       {/* ===== 追加 ===== */}
       <View style={styles.addBox}>
@@ -166,12 +167,12 @@ const NotificationScreen: FC = () => {
               setShowDatePicker(true);
             }}
           >
-            <Text>{newTime || '日時を選択'}</Text>
+            <ThemedText>{newTime || '日時を選択'}</ThemedText>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity style={styles.addButton} onPress={addTask}>
-          <Text style={styles.buttonText}>追加</Text>
+          <ThemedText style={styles.buttonText}>追加</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -203,14 +204,14 @@ const NotificationScreen: FC = () => {
                     setShowDatePicker(true);
                   }}
                 >
-                  <Text>{editTime || '日時を選択'}</Text>
+                  <ThemedText>{editTime || '日時を選択'}</ThemedText>
                 </TouchableOpacity>
               )}
             </>
           ) : (
             <>
-              <Text style={styles.taskText}>{task.text}</Text>
-              <Text style={styles.timeText}>{task.reminderAt}</Text>
+              <ThemedText style={styles.taskText}>{task.text}</ThemedText>
+              <ThemedText style={styles.timeText}>{task.reminderAt}</ThemedText>
             </>
           )}
 
@@ -220,7 +221,7 @@ const NotificationScreen: FC = () => {
                 style={styles.doneButton}
                 onPress={saveEdit}
               >
-                <Text style={styles.buttonText}>保存</Text>
+                <ThemedText style={styles.buttonText}>保存</ThemedText>
               </TouchableOpacity>
             ) : (
               <>
@@ -228,21 +229,21 @@ const NotificationScreen: FC = () => {
                   style={styles.editButton}
                   onPress={() => startEdit(task)}
                 >
-                  <Text style={styles.buttonText}>編集</Text>
+                  <ThemedText style={styles.buttonText}>編集</ThemedText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.doneButton}
                   onPress={() => completeTask(task.id)}
                 >
-                  <Text style={styles.buttonText}>完了</Text>
+                  <ThemedText style={styles.buttonText}>完了</ThemedText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => deleteTask(task.id)}
                 >
-                  <Text style={styles.buttonText}>削除</Text>
+                  <ThemedText style={styles.buttonText}>削除</ThemedText>
                 </TouchableOpacity>
               </>
             )}
@@ -250,17 +251,17 @@ const NotificationScreen: FC = () => {
         </View>
       ))}
 
-      <Text style={styles.title}>履歴</Text>
+      <ThemedText style={styles.title}>履歴</ThemedText>
 
       {historyTasks.map(task => (
         <View key={task.id} style={styles.historyCard}>
-          <Text style={styles.taskText}>{task.text}</Text>
-          <Text style={styles.timeText}>完了：{task.completedAt}</Text>
+          <ThemedText style={styles.taskText}>{task.text}</ThemedText>
+          <ThemedText style={styles.timeText}>完了：{task.completedAt}</ThemedText>
         </View>
       ))}
 
       <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.back}>戻る</Text>
+        <ThemedText style={styles.back}>戻る</ThemedText>
       </TouchableOpacity>
 
       {showDatePicker && (
@@ -290,6 +291,7 @@ const webInput: React.CSSProperties = {
   border: 'none',
   outline: 'none',
   fontSize: 16,
+  fontFamily: Fonts.rounded,
   backgroundColor: 'transparent',
 };
 
@@ -298,7 +300,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 18, backgroundColor: '#fff3ff' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 12, color: '#aaacf5ff' },
   addBox: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, backgroundColor: '#f8f1ff' },
-  input: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 10, borderRadius: 16, marginBottom: 10, backgroundColor: '#fbf7ff' },
+  input: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 10, borderRadius: 16, marginBottom: 10, backgroundColor: '#fbf7ff', fontFamily: Fonts.rounded },
 
   webInputWrapper: {
     borderWidth: 1,

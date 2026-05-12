@@ -1,11 +1,12 @@
+import { ThemedText } from '@/components/themed-text';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 export default function ExploreScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Explore</Text>
-      <Text style={styles.subtitle}>わたしの勉強スタイルを見つけよう💖</Text>
+      <ThemedText style={styles.title}>Explore</ThemedText>
+      <ThemedText style={styles.subtitle}>わたしの勉強スタイルを見つけよう💖</ThemedText>
     </View>
   );
 }

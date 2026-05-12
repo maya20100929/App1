@@ -3,11 +3,11 @@ import React, { useMemo } from 'react';
 import {
     ScrollView,
     StyleSheet,
-    Text,
     TouchableOpacity,
     useWindowDimensions,
     View,
 } from 'react-native';
+import { ThemedText } from '@/components/themed-text';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 /* =====================
@@ -165,12 +165,12 @@ export default function OldRecordScreen() {
   ===================== */
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>今までの記録</Text>
+      <ThemedText style={styles.title}>今までの記録</ThemedText>
 
       <View style={styles.totalBox}>
-        <Text style={styles.totalText}>
+        <ThemedText style={styles.totalText}>
           累計ポイント：{totalPoint} pt
-        </Text>
+        </ThemedText>
       </View>
 
       <View
@@ -184,7 +184,7 @@ export default function OldRecordScreen() {
           style={styles.card}
           onPress={() => router.push('/oldrecord/daily')}
         >
-          <Text style={styles.sectionTitle}>日別 推移</Text>
+          <ThemedText style={styles.sectionTitle}>日別 推移</ThemedText>
           <Svg width={280} height={120}>
             <Polyline
               points={dailyPoints
@@ -203,7 +203,7 @@ export default function OldRecordScreen() {
           style={styles.card}
           onPress={() => router.push('/oldrecord/subject')}
         >
-          <Text style={styles.sectionTitle}>科目別</Text>
+          <ThemedText style={styles.sectionTitle}>科目別</ThemedText>
           <Svg width={200} height={200} viewBox="0 0 200 200">
             {pieCircles}
           </Svg>
@@ -214,11 +214,11 @@ export default function OldRecordScreen() {
           style={styles.card}
           onPress={() => router.push('/oldrecord/material')}
         >
-          <Text style={styles.sectionTitle}>教材ランキング</Text>
+          <ThemedText style={styles.sectionTitle}>教材ランキング</ThemedText>
           {materialRanking.map(([m, p], i) => (
-            <Text key={m}>
+            <ThemedText key={m}>
               {i + 1}. {m}：{p} pt
-            </Text>
+            </ThemedText>
           ))}
         </TouchableOpacity>
       </View>

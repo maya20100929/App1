@@ -1,14 +1,15 @@
+import { ThemedText } from '@/components/themed-text';
+import { Fonts } from '@/constants/theme';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
-  View,
+  View
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 
@@ -231,7 +232,7 @@ export default function TestOverviewScreen() {
       {/* 上段 */}
       <View style={[styles.headerRow, isMobile && styles.headerRowMobile]}>
         <View style={isMobile ? styles.fullWidth : undefined}>
-          <Text style={styles.testTitle}>次のテスト</Text>
+          <ThemedText style={styles.testTitle}>次のテスト</ThemedText>
 
           <View style={styles.dateRow}>
             <TextInput
@@ -241,18 +242,18 @@ export default function TestOverviewScreen() {
               placeholder="YYYY-MM-DD"
             />
             <TouchableOpacity style={styles.saveButton} onPress={saveTestInfo}>
-              <Text style={styles.buttonText}>保存</Text>
+              <ThemedText style={styles.buttonText}>保存</ThemedText>
             </TouchableOpacity>
             {daysLeft !== null && (
-              <Text style={styles.daysLeft}>
-                残り <Text style={styles.daysLeftNumber}>{daysLeft}</Text> 日
-              </Text>
+              <ThemedText style={styles.daysLeft}>
+                残り <ThemedText style={styles.daysLeftNumber}>{daysLeft}</ThemedText> 日
+              </ThemedText>
             )}
           </View>
         </View>
 
         <View style={[styles.goalBox, isMobile && styles.goalBoxMobile]}>
-          <Text style={styles.goalLabel}>目標</Text>
+          <ThemedText style={styles.goalLabel}>目標</ThemedText>
           <TextInput
             style={styles.goalInput}
             multiline
@@ -262,10 +263,10 @@ export default function TestOverviewScreen() {
           />
           <View style={{ flexDirection: 'row', marginTop: 8, justifyContent: 'flex-end' }}>
             <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12 }]} onPress={saveTestInfo}>
-              <Text style={styles.buttonText}>保存</Text>
+              <ThemedText style={styles.buttonText}>保存</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12, marginLeft: 8 }]} onPress={deleteTestInfo}>
-              <Text style={styles.buttonText}>削除</Text>
+              <ThemedText style={styles.buttonText}>削除</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -285,7 +286,7 @@ export default function TestOverviewScreen() {
               ]}
               onPress={() => setSelectedSubject(sub)}
             >
-              <Text
+              <ThemedText
                 style={[
                   styles.subjectText,
                   selectedSubject === sub &&
@@ -293,7 +294,7 @@ export default function TestOverviewScreen() {
                 ]}
               >
                 {sub}
-              </Text>
+              </ThemedText>
             </TouchableOpacity>
           ))}
         </View>
@@ -303,7 +304,7 @@ export default function TestOverviewScreen() {
       <View style={[styles.mainArea, isMobile && styles.mainAreaMobile]}>
         {/* 左 */}
         <View style={[styles.progressArea, isMobile && styles.progressAreaMobile]}>
-          <Text>進捗</Text>
+          <ThemedText>進捗</ThemedText>
           <View style={styles.progressBarBg}>
             <View
               style={[
@@ -312,28 +313,28 @@ export default function TestOverviewScreen() {
               ]}
             />
           </View>
-          <Text>
+          <ThemedText>
             {doneTasks}/{totalTasks}（{progressPercent}%）
-          </Text>
+          </ThemedText>
         </View>
 
         {/* 右 */}
         <View style={[styles.contentArea, isMobile && styles.contentAreaMobile]}>
           <View style={[styles.todoBox, isMobile && styles.sectionBoxMobile]}>
             <View style={styles.todoHeader}>
-              <Text style={styles.boxTitle}>やる事</Text>
+              <ThemedText style={styles.boxTitle}>やる事</ThemedText>
               <View style={styles.todoActionRow}>
                 <TouchableOpacity
                   style={styles.addButton}
                   onPress={addTodo}
                 >
-                  <Text style={styles.buttonText}>追加</Text>
+                  <ThemedText style={styles.buttonText}>追加</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.addButton, styles.todoActionButton]}
                   onPress={() => setIsEditMode(p => !p)}
                 >
-                  <Text style={styles.buttonText}>{isEditMode ? '完了' : '編集'}</Text>
+                  <ThemedText style={styles.buttonText}>{isEditMode ? '完了' : '編集'}</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -344,9 +345,9 @@ export default function TestOverviewScreen() {
                   <TouchableOpacity
                     onPress={() => toggleTodo(todo.id)}
                   >
-                    <Text style={styles.checkbox}>
+                    <ThemedText style={styles.checkbox}>
                       {todo.done ? '☑' : '☐'}
-                    </Text>
+                    </ThemedText>
                   </TouchableOpacity>
                 )}
 
@@ -369,17 +370,17 @@ export default function TestOverviewScreen() {
                     <TouchableOpacity
                       onPress={() => moveTodo(index, 'up')}
                     >
-                      <Text>↑</Text>
+                      <ThemedText>↑</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => moveTodo(index, 'down')}
                     >
-                      <Text>↓</Text>
+                      <ThemedText>↓</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => deleteTodo(todo.id)}
                     >
-                      <Text>🗑</Text>
+                      <ThemedText>🗑</ThemedText>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -441,6 +442,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     width: 160,
+    fontFamily: Fonts.rounded,
   },
   daysLeft: {
     marginTop: 6,
@@ -477,6 +479,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#fbf7ff',
     padding: 10,
+    fontFamily: Fonts.rounded,
   },
 
   divider: {
@@ -620,7 +623,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
 
-  todoInput: { flex: 1, paddingVertical: 8, color: '#4A1D4D' },
+  todoInput: { flex: 1, paddingVertical: 8, color: '#4A1D4D', fontFamily: Fonts.rounded },
 
   editButtons: {
     flexDirection: 'row',
@@ -643,5 +646,6 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: '#fbf7ff',
     borderRadius: 16,
+    fontFamily: Fonts.rounded,
   },
 });

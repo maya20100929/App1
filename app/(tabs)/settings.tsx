@@ -1,6 +1,8 @@
+import { ThemedText } from '@/components/themed-text';
+import { Fonts } from '@/constants/theme';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState('');
@@ -23,7 +25,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       {/* ①題名 */}
-      <Text style={styles.title}>本人確認</Text>
+      <ThemedText style={styles.title}>本人確認</ThemedText>
 
       {/* ②ユーザーID */}
       <TextInput
@@ -44,7 +46,7 @@ export default function LoginScreen() {
 
       {/* 決定ボタン */}
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>決定</Text>
+        <ThemedText style={styles.buttonText}>決定</ThemedText>
       </TouchableOpacity>
     </View>
   );
@@ -53,7 +55,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff4ff' },
   title: { fontSize: 32, fontWeight: 'bold', marginBottom: 32, textAlign: 'center', color: '#aaacf5ff' },
-  input: { borderWidth: 1, borderColor: '#f0e8ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf5ff' },
+  input: { borderWidth: 1, borderColor: '#f0e8ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf5ff', fontFamily: Fonts.rounded },
   button: { backgroundColor: '#aaacf5ff', borderRadius: 22, padding: 14, alignItems: 'center', marginBottom: 24, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },
   buttonText: { color: '#fff', fontSize: 16 },
 });

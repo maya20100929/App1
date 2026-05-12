@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText } from '@/components/themed-text';
 import { getAllRecords, StudyRecord } from '../../../lib/recordStore';
 
 type Subject = '数学' | '英語' | '国語' | '理科' | '社会';
@@ -66,10 +67,10 @@ export default function SubjectDetailScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>科目別 詳細</Text>
+      <ThemedText style={styles.title}>科目別 詳細</ThemedText>
 
       {subjectPoints.length === 0 ? (
-        <Text style={styles.noDataText}>データがありません</Text>
+        <ThemedText style={styles.noDataText}>データがありません</ThemedText>
       ) : (
         <View>
           {subjectPoints.map(({ subject, point, entries }) => (
@@ -82,17 +83,17 @@ export default function SubjectDetailScreen() {
                   ]}
                 />
                 <View style={styles.subjectContent}>
-                  <Text style={styles.subjectName}>{subject}</Text>
-                  <Text style={styles.subjectPoint}>{point} pt</Text>
+                  <ThemedText style={styles.subjectName}>{subject}</ThemedText>
+                  <ThemedText style={styles.subjectPoint}>{point} pt</ThemedText>
                 </View>
               </View>
               <View style={styles.entriesBox}>
                 {entries.map((entry) => (
                   <View key={entry.id} style={styles.entryItem}>
-                    <Text style={styles.entryMaterial}>{entry.material}</Text>
-                    <Text style={styles.entryContent}>{entry.content}</Text>
-                    <Text style={styles.entryAmount}>{entry.amount} {entry.unit} → {entry.point} pt</Text>
-                    <Text style={styles.entryDate}>{entry.date}</Text>
+                    <ThemedText style={styles.entryMaterial}>{entry.material}</ThemedText>
+                    <ThemedText style={styles.entryContent}>{entry.content}</ThemedText>
+                    <ThemedText style={styles.entryAmount}>{entry.amount} {entry.unit} → {entry.point} pt</ThemedText>
+                    <ThemedText style={styles.entryDate}>{entry.date}</ThemedText>
                   </View>
                 ))}
               </View>

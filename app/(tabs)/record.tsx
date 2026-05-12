@@ -1,15 +1,16 @@
+import { ThemedText } from '@/components/themed-text';
+import { Fonts } from '@/constants/theme';
 import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord } from '../../lib/recordStore';
 
@@ -237,10 +238,10 @@ export default function RecordScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>勉強を記録</Text>
+      <ThemedText style={styles.title}>勉強を記録</ThemedText>
 
       {/* 科目 */}
-      <Text style={styles.label}>科目</Text>
+      <ThemedText style={styles.label}>科目</ThemedText>
       <View style={styles.pickerWrapper}>
         <Picker selectedValue={subject} onValueChange={setSubject}>
           {subjectRules.map(r => (
@@ -250,7 +251,7 @@ export default function RecordScreen() {
       </View>
 
       {/* 教材 */}
-      <Text style={styles.label}>教材</Text>
+      <ThemedText style={styles.label}>教材</ThemedText>
       <View style={styles.pickerWrapper}>
         <Picker selectedValue={material} onValueChange={setMaterial}>
           <Picker.Item label="選択してください" value="" />
@@ -269,7 +270,7 @@ export default function RecordScreen() {
             value={customMaterial}
             onChangeText={setCustomMaterial}
           />
-          <Text style={styles.label}>ポイント倍率</Text>
+          <ThemedText style={styles.label}>ポイント倍率</ThemedText>
           <TextInput
             style={styles.input}
             keyboardType="decimal-pad"
@@ -282,7 +283,7 @@ export default function RecordScreen() {
       )}
 
       {/* 内容 */}
-      <Text style={styles.label}>内容</Text>
+      <ThemedText style={styles.label}>内容</ThemedText>
       <TextInput
         style={styles.input}
         placeholder="例：二次関数、長文①"
@@ -291,7 +292,7 @@ export default function RecordScreen() {
       />
 
       {/* 単位選択 */}
-      <Text style={styles.label}>単位</Text>
+      <ThemedText style={styles.label}>単位</ThemedText>
       {unitOptions.length > 0 ? (
         <View style={styles.pickerWrapper}>
           <Picker selectedValue={selectedUnit} onValueChange={setSelectedUnit}>
@@ -302,12 +303,12 @@ export default function RecordScreen() {
           </Picker>
         </View>
       ) : (
-        <Text style={styles.noDataText}>設定画面で単位を設定してください</Text>
+        <ThemedText style={styles.noDataText}>設定画面で単位を設定してください</ThemedText>
       )}
 
       {/* カスタム単位 */}
       <View style={styles.switchRow}>
-        <Text>カスタム単位を使う</Text>
+        <ThemedText>カスタム単位を使う</ThemedText>
         <Switch value={!!customUnit} onValueChange={val => setCustomUnit(val ? '' : '')} />
       </View>
 
@@ -319,7 +320,7 @@ export default function RecordScreen() {
             value={customUnit}
             onChangeText={setCustomUnit}
           />
-          <Text style={styles.label}>この単位の1あたりのポイント</Text>
+          <ThemedText style={styles.label}>この単位の1あたりのポイント</ThemedText>
           <TextInput
             style={styles.input}
             keyboardType="decimal-pad"
@@ -332,9 +333,9 @@ export default function RecordScreen() {
       )}
 
       {/* 量 */}
-      <Text style={styles.label}>
+      <ThemedText style={styles.label}>
         量（{actualUnit ?? '単位'}）
-      </Text>
+      </ThemedText>
       <TextInput
         style={styles.input}
         keyboardType="numeric"
@@ -344,11 +345,11 @@ export default function RecordScreen() {
 
       {/* ポイント */}
       <View style={styles.pointBox}>
-        <Text style={styles.pointText}>今回のポイント：{point} pt</Text>
+        <ThemedText style={styles.pointText}>今回のポイント：{point} pt</ThemedText>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleSave}>
-        <Text style={styles.buttonText}>保存</Text>
+        <ThemedText style={styles.buttonText}>保存</ThemedText>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -395,6 +396,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 16,
     backgroundColor: '#fbf7ff',
+    fontFamily: Fonts.rounded,
   },
   switchRow: {
     flexDirection: 'row',

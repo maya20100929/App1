@@ -1,9 +1,11 @@
+import { ThemedText } from '@/components/themed-text';
+import { Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 
 export default function LoginScreen() {
@@ -64,7 +66,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       {/* ①題名 */}
-      <Text style={styles.title}>新規登録</Text>
+      <ThemedText style={styles.title}>新規登録</ThemedText>
 
       {/* ②メアド */}
       <TextInput
@@ -90,9 +92,9 @@ export default function LoginScreen() {
           <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#666" />
         </TouchableOpacity>
       </View>
-      <Text style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+      <ThemedText style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
         パスワードは8文字以上で、英字と数字を含めてください。
-      </Text>
+      </ThemedText>
 
       {/* 利用規約チェック（ここにSwitchを置く） */}
     <View style={styles.termsContainer}>
@@ -103,20 +105,20 @@ export default function LoginScreen() {
       thumbColor={'#fff'}
   />
     <TouchableOpacity onPress={() => setModalVisible(true)}>
-      <Text style={styles.linkText}>利用規約・プライバシーポリシーを見る</Text>
+      <ThemedText style={styles.linkText}>利用規約・プライバシーポリシーを見る</ThemedText>
     </TouchableOpacity>
     </View>
 
       {/* エラーメッセージ */}
       {errorMessage ? (
-        <Text style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>
+        <ThemedText style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>
           {errorMessage}
-        </Text>
+        </ThemedText>
       ) : null}
 
       {/* 登録ボタン */}
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>登録</Text>
+        <ThemedText style={styles.buttonText}>登録</ThemedText>
       </TouchableOpacity>
 
 
@@ -130,8 +132,8 @@ export default function LoginScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView>
-              <Text style={styles.modalTitle}>利用規約</Text>
-              <Text style={styles.modalText}>
+              <ThemedText style={styles.modalTitle}>利用規約</ThemedText>
+              <ThemedText style={styles.modalText}>
                 第1条（適用）{'\n'}
                 1.本規約は、ユーザーと当社との間の本アプリの利用に関する一切の関係に適用されます。{'\n'}
                 2.当社は本規約を随時変更できるものとし、変更後の規約は本アプリ上に表示された時点から効力を生じます。{'\n'}
@@ -182,11 +184,11 @@ export default function LoginScreen() {
                 2.未成年者のユーザーが本アプリを利用した場合、当社は、親権者等の同意を得たうえでの利用であるとみなします。{'\n'}
                 3.未成年者が親権者等の同意を得ずに本アプリを利用し、または虚偽の申告を行った場合でも、当社は一切の責任を負いません。{'\n'}
                 4.ユーザーが利用開始後に成年に達した場合、当該ユーザーは成年到達後も引き続き本アプリを利用する意思をもって本規約に同意したものとみなします。{'\n'}
-              </Text>
+              </ThemedText>
 
 
-<Text style={styles.modalTitle}>プライバシーポリシー</Text>
-              <Text style={styles.modalText}>
+<ThemedText style={styles.modalTitle}>プライバシーポリシー</ThemedText>
+              <ThemedText style={styles.modalText}>
                 {'\n'}
                 プライバシーポリシー{'\n'}
         本プライバシーポリシー（以下「本ポリシー」といいます。）は、当社（以下「当社」といいます。）が提供する勉強アプリ「○○」（以下「本アプリ」といいます。）における、ユーザーの個人情報の取り扱いについて定めるものです。ユーザーは本アプリを利用することで、本ポリシーに同意したものとみなされます。{'\n'}
@@ -232,14 +234,14 @@ export default function LoginScreen() {
         本ポリシーに関するお問い合わせは、以下の窓口までお願いします。{'\n'}
         ○○株式会社{'\n'}
         E-mail: support@example.com{'\n'}
-              </Text>
+              </ThemedText>
 
             </ScrollView>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setModalVisible(false)}
             >
-              <Text style={styles.modalButtonText}>閉じる</Text>
+              <ThemedText style={styles.modalButtonText}>閉じる</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -251,7 +253,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff4ff' },
   title: { fontSize: 32, fontWeight: 'bold', marginBottom: 32, textAlign: 'center', color: '#aaacf5ff' },
-  input: { borderWidth: 1, borderColor: '#f0e8ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf5ff' },
+  input: { borderWidth: 1, borderColor: '#f0e8ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf5ff', fontFamily: Fonts.rounded },
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   linkText: { color: '#aaacf5ff', textDecorationLine: 'underline', marginLeft: 8 },
   button: { backgroundColor: '#aaacf5ff', borderRadius: 22, padding: 14, alignItems: 'center', marginBottom: 24, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },

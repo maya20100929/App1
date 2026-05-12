@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Fonts } from '@/constants/theme';
 import { router } from 'expo-router';
 import {
   createUserWithEmailAndPassword,
@@ -541,6 +542,7 @@ const styles = StyleSheet.create({
     width: 160,
     marginBottom: 4,
     textAlign: 'center',
+    fontFamily: Fonts.rounded,
   },
 
   daysLeft: {

@@ -1,8 +1,10 @@
+import { ThemedText } from '@/components/themed-text';
+import { Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../lib/firebase';
 
 export default function LoginScreen() {
@@ -55,7 +57,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       {/* ①題名 */}
-      <Text style={styles.title}>ログイン</Text>
+      <ThemedText style={styles.title}>ログイン</ThemedText>
 
       {/* ②メアド */}
       <TextInput
@@ -84,14 +86,14 @@ export default function LoginScreen() {
       
       {/* エラーメッセージ */}
       {errorMessage ? (
-        <Text style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>
+        <ThemedText style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>
           {errorMessage}
-        </Text>
+        </ThemedText>
       ) : null}
 
       {/* ログインボタン */}
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>ログイン</Text>
+        <ThemedText style={styles.buttonText}>ログイン</ThemedText>
       </TouchableOpacity>
 
       {/* 一本線 */}
@@ -100,7 +102,7 @@ export default function LoginScreen() {
       {/* ④新規登録 */}
       <Link href="/register" asChild>
         <TouchableOpacity>
-          <Text style={styles.registerText}>新規登録はこちら</Text>
+          <ThemedText style={styles.registerText}>新規登録はこちら</ThemedText>
         </TouchableOpacity>
       </Link>
 
@@ -112,7 +114,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff3ff' },
   title: { fontSize: 36, fontWeight: 'bold', marginBottom: 32, textAlign: 'center', color: '#8a2f8a' },
-  input: { borderWidth: 1, borderColor: '#e8e2ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf7ff' },
+  input: { borderWidth: 1, borderColor: '#e8e2ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf7ff', fontFamily: Fonts.rounded },
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   linkText: { color: '#aaacf5ff', textDecorationLine: 'underline', marginLeft: 8 },
   button: { backgroundColor: '#aaacf5ff', borderRadius: 24, padding: 14, alignItems: 'center', marginBottom: 24, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },

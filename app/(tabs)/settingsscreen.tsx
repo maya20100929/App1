@@ -1,3 +1,5 @@
+import { ThemedText } from '@/components/themed-text';
+import { Fonts } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from 'expo-router';
@@ -8,10 +10,9 @@ import {
   // Picker,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { getUnitPointRulesBySubject, saveUnitPointRule } from '../../lib/recordStore';
 
@@ -163,21 +164,21 @@ export default function SettingsScreen() {
         if (item.type === 'unit') {
           return (
             <View key={index}>
-              <Text style={styles.sectionTitle}>{item.label}</Text>
+              <ThemedText style={styles.sectionTitle}>{item.label}</ThemedText>
               <View style={styles.box}>
                 <TouchableOpacity
                   onPress={() => setShowUnitSettings(!showUnitSettings)}
                   style={styles.itemButton}
                 >
-                  <Text style={styles.itemText}>
+                  <ThemedText style={styles.itemText}>
                     {showUnitSettings ? '▼ 単位ごとのポイントを設定' : '▶ 単位ごとのポイントを設定'}
-                  </Text>
+                  </ThemedText>
                 </TouchableOpacity>
 
                 {showUnitSettings && (
                   <View style={styles.unitSettingsContainer}>
                     {/* 科目選択 */}
-                    <Text style={styles.label}>科目を選択</Text>
+                    <ThemedText style={styles.label}>科目を選択</ThemedText>
                     <View style={styles.pickerWrapper}>
                       <Picker
                         selectedValue={selectedSubject}
@@ -189,7 +190,7 @@ export default function SettingsScreen() {
                       </Picker>
                     </View>
 
-                    <Text style={styles.label}>現在の設定（数値をタップして編集）：</Text>
+                    <ThemedText style={styles.label}>現在の設定（数値をタップして編集）：</ThemedText>
 
                     <View style={styles.tableCard}>
                       <ScrollView horizontal showsHorizontalScrollIndicator={true}>
@@ -198,7 +199,7 @@ export default function SettingsScreen() {
                           <View style={styles.simpleRow}>
                             {unitOptions.map((unit, idx) => (
                               <View key={`u-${idx}`} style={styles.simpleCell}>
-                                <Text style={styles.unitLabelText}>{unit}</Text>
+                                <ThemedText style={styles.unitLabelText}>{unit}</ThemedText>
                               </View>
                             ))}
                           </View>
@@ -232,7 +233,7 @@ export default function SettingsScreen() {
                                       }
                                     }}
                                   />
-                                  <Text style={styles.ptSuffixSmall}>pt</Text>
+                                  <ThemedText style={styles.ptSuffixSmall}>pt</ThemedText>
                                 </View>
                               );
                             })}
@@ -240,9 +241,9 @@ export default function SettingsScreen() {
                         </View>
                       </ScrollView>
                     </View>
-                    <Text style={{ fontSize: 10, color: '#aaa', marginTop: 8, textAlign: 'right' }}>
+                    <ThemedText style={{ fontSize: 10, color: '#aaa', marginTop: 8, textAlign: 'right' }}>
                       ※数値を変えると自動で保存されます
-                    </Text>
+                    </ThemedText>
                   </View>
                 )}
               </View>
@@ -254,7 +255,7 @@ export default function SettingsScreen() {
           // テーマカラー
           return (
             <View key={index}>
-              <Text style={styles.sectionTitle}>{item.label}</Text>
+              <ThemedText style={styles.sectionTitle}>{item.label}</ThemedText>
               <View style={styles.colorRow}>
                 {themeColors.map((color, idx) => (
                   <TouchableOpacity
@@ -275,7 +276,7 @@ export default function SettingsScreen() {
         if (item.type === 'profile') {
           return (
             <View key={index}>
-              <Text style={styles.sectionTitle}>プロフィール</Text>
+              <ThemedText style={styles.sectionTitle}>プロフィール</ThemedText>
               <View style={styles.box}>
                 <TextInput
                   placeholder="ニックネーム"
@@ -293,7 +294,7 @@ export default function SettingsScreen() {
                   onPress={saveUserProfile}
                   style={[styles.modalButton, { marginTop: 12 }]}
                 >
-                  <Text style={styles.modalButtonText}>保存</Text>
+                  <ThemedText style={styles.modalButtonText}>保存</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -304,17 +305,17 @@ export default function SettingsScreen() {
         // 通常のボタンやテキスト
         return (
           <View key={index}>
-            <Text style={styles.sectionTitle}>{item.section}</Text>
+            <ThemedText style={styles.sectionTitle}>{item.section}</ThemedText>
             <View style={styles.box}>
               <TouchableOpacity
                 style={styles.itemButton}
                 onPress={item.action}
                 disabled={!item.action}
               >
-                <Text style={styles.itemText}>{item.label}</Text>
+                <ThemedText style={styles.itemText}>{item.label}</ThemedText>
               </TouchableOpacity>
               {item.label === '最終ログイン' && (
-                <Text style={styles.boxText}>最終ログイン：{lastLogin || 'データなし'}</Text>
+                <ThemedText style={styles.boxText}>最終ログイン：{lastLogin || 'データなし'}</ThemedText>
               )}
             </View>
           </View>
@@ -331,8 +332,8 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView>
-              <Text style={styles.modalTitle}>利用規約</Text>
-              <Text style={styles.modalText}>
+              <ThemedText style={styles.modalTitle}>利用規約</ThemedText>
+              <ThemedText style={styles.modalText}>
                 第1条（適用）{'\n'}
                 1.本規約は、ユーザーと当社との間の本アプリの利用に関する一切の関係に適用されます。{'\n'}
                 2.当社は本規約を随時変更できるものとし、変更後の規約は本アプリ上に表示された時点から効力を生じます。{'\n'}
@@ -383,13 +384,13 @@ export default function SettingsScreen() {
                 2.未成年者のユーザーが本アプリを利用した場合、当社は、親権者等の同意を得たうえでの利用であるとみなします。{'\n'}
                 3.未成年者が親権者等の同意を得ずに本アプリを利用し、または虚偽の申告を行った場合でも、当社は一切の責任を負いません。{'\n'}
                 4.ユーザーが利用開始後に成年に達した場合、当該ユーザーは成年到達後も引き続き本アプリを利用する意思をもって本規約に同意したものとみなします。{'\n'}
-              </Text>
+              </ThemedText>
             </ScrollView>
             <TouchableOpacity
               onPress={() => setTermsModalVisible(false)}
               style={styles.modalButton}
             >
-              <Text style={styles.modalButtonText}>閉じる</Text>
+              <ThemedText style={styles.modalButtonText}>閉じる</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -406,8 +407,8 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView>
-              <Text style={styles.modalTitle}>プライバシーポリシー</Text>
-              <Text style={styles.modalText}>
+              <ThemedText style={styles.modalTitle}>プライバシーポリシー</ThemedText>
+              <ThemedText style={styles.modalText}>
                 本プライバシーポリシー（以下「本ポリシー」といいます。）は、当社（以下「当社」といいます。）が提供する勉強アプリ「○○」（以下「本アプリ」といいます。）における、ユーザーの個人情報の取り扱いについて定めるものです。ユーザーは本アプリを利用することで、本ポリシーに同意したものとみなされます。{'\n'}
                 {'\n'}
                 第1条（収集する情報）{'\n'}
@@ -451,13 +452,13 @@ export default function SettingsScreen() {
                 本ポリシーに関するお問い合わせは、以下の窓口までお願いします。{'\n'}
                 ○○株式会社{'\n'}
                 E-mail: support@example.com{'\n'}
-              </Text>
+              </ThemedText>
             </ScrollView>
             <TouchableOpacity
               onPress={() => setPrivacyModalVisible(false)}
               style={styles.modalButton}
             >
-              <Text style={styles.modalButtonText}>閉じる</Text>
+              <ThemedText style={styles.modalButtonText}>閉じる</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -478,6 +479,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 20,
     fontSize: 16,
+    fontFamily: Fonts.rounded,
   },
 
   sectionTitle: {
@@ -576,6 +578,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 14,
     backgroundColor: '#fbf5ff',
+    fontFamily: Fonts.rounded,
   },
   unitItem: {
     backgroundColor: '#f6eff8',
@@ -625,6 +628,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 0, // 余計な余白を消す
     minWidth: 40,
+    fontFamily: Fonts.rounded,
   },
   ptSuffixSmall: {
     fontSize: 10,

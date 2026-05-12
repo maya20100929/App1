@@ -38,29 +38,29 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.rounded,
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '600',
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.rounded,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     lineHeight: 32,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.rounded,
   },
   subtitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.rounded,
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
     color: '#0a7ea4',
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.rounded,
   },
 });

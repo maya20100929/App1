@@ -1,6 +1,7 @@
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText } from '@/components/themed-text';
 import { getRecordsByDate, StudyRecord } from '../../../lib/recordStore';
 
 export default function DailyDetailScreen() {
@@ -56,28 +57,28 @@ export default function DailyDetailScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>日別 詳細</Text>
-      <Text style={styles.dateText}>{dateParam}</Text>
+      <ThemedText style={styles.title}>日別 詳細</ThemedText>
+      <ThemedText style={styles.dateText}>{dateParam}</ThemedText>
 
       <View style={styles.box}>
-        <Text style={styles.boxTitle}>合計：{totalPoint} pt</Text>
+        <ThemedText style={styles.boxTitle}>合計：{totalPoint} pt</ThemedText>
         {subjectBreakdown.map(([subject, point]) => (
-          <Text key={subject} style={styles.boxItem}>
+          <ThemedText key={subject} style={styles.boxItem}>
             {subject}：{point} pt
-          </Text>
+          </ThemedText>
         ))}
       </View>
 
       <View style={styles.detailsBox}>
-        <Text style={styles.detailsTitle}>詳細</Text>
+        <ThemedText style={styles.detailsTitle}>詳細</ThemedText>
         {records.map(record => (
           <View key={record.id} style={styles.recordItem}>
-            <Text style={styles.recordSubject}>{record.subject}</Text>
-            <Text style={styles.recordContent}>{record.material} - {record.content}</Text>
-            <Text style={styles.recordAmount}>
+            <ThemedText style={styles.recordSubject}>{record.subject}</ThemedText>
+            <ThemedText style={styles.recordContent}>{record.material} - {record.content}</ThemedText>
+            <ThemedText style={styles.recordAmount}>
               {record.amount} {record.unit}
-            </Text>
-            <Text style={styles.recordPoint}>{record.point} pt</Text>
+            </ThemedText>
+            <ThemedText style={styles.recordPoint}>{record.point} pt</ThemedText>
           </View>
         ))}
       </View>

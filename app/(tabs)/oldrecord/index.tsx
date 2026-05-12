@@ -1,10 +1,10 @@
+import { ThemedText } from '@/components/themed-text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -172,14 +172,14 @@ export default function OldRecordScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>今までの記録</Text>
+      <ThemedText style={styles.title}>今までの記録</ThemedText>
 
       {isLoading ? (
-        <Text style={styles.loadingText}>読み込み中...</Text>
+        <ThemedText style={styles.loadingText}>読み込み中...</ThemedText>
       ) : (
         <>
           <View style={styles.totalBox}>
-            <Text style={styles.totalText}>累計ポイント：{totalPoint} pt</Text>
+            <ThemedText style={styles.totalText}>累計ポイント：{totalPoint} pt</ThemedText>
           </View>
 
           <View
@@ -202,7 +202,7 @@ export default function OldRecordScreen() {
                 });
               }}
             >
-              <Text style={styles.sectionTitle}>日別 推移</Text>
+              <ThemedText style={styles.sectionTitle}>日別 推移</ThemedText>
               <Svg width={280} height={120}>
                 <Polyline
                   points={dailyPoints
@@ -221,7 +221,7 @@ export default function OldRecordScreen() {
               style={styles.card}
               onPress={() => router.push('/oldrecord/subject')}
             >
-              <Text style={styles.sectionTitle}>科目別</Text>
+              <ThemedText style={styles.sectionTitle}>科目別</ThemedText>
               <Svg width={200} height={200} viewBox="0 0 200 200">
                 {(() => {
                   const cx = 100;
@@ -235,12 +235,6 @@ export default function OldRecordScreen() {
                     const sliceAngle = (point / totalPoint) * 2 * Math.PI;
                     const startAngle = currentAngle;
                     const endAngle = currentAngle + sliceAngle;
-
-                    // Arc path calculation
-                    const x1 = cx + radius * Math.cos(startAngle);
-                    const y1 = cy + radius * Math.sin(startAngle);
-                    const x2 = cx + radius * Math.cos(endAngle);
-                    const y2 = cy + radius * Math.sin(endAngle);
 
                     const largeArc = sliceAngle > Math.PI ? 1 : 0;
 
@@ -272,11 +266,11 @@ export default function OldRecordScreen() {
               style={styles.card}
               onPress={() => router.push('/oldrecord/material')}
             >
-              <Text style={styles.sectionTitle}>教材ランキング</Text>
+              <ThemedText style={styles.sectionTitle}>教材ランキング</ThemedText>
               {materialRanking.map(([m, p], i) => (
-                <Text key={m}>
+                <ThemedText key={m}>
                   {i + 1}. {m}：{p} pt
-                </Text>
+                </ThemedText>
               ))}
             </TouchableOpacity>
           </View>
