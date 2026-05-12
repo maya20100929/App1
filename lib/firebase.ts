@@ -1,6 +1,8 @@
 import { Analytics, getAnalytics } from 'firebase/analytics';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -29,7 +31,12 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const auth = getAuth(app);
+const auth =
+  typeof window === 'undefined'
+    ? initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage),
+      })
+    : getAuth(app);
 const db = getFirestore(app);
 
 console.log('[firebase] Auth and Firestore initialized');

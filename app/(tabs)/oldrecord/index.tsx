@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -82,7 +82,7 @@ export default function OldRecordScreen() {
       try {
         const firebaseRecords = await getAllRecords();
         if (firebaseRecords && firebaseRecords.length > 0) {
-          allRecords = firebaseRecords;
+          allRecords = firebaseRecords.map(r => ({ ...r, point: isNaN(Number(r.point)) ? 0 : Number(r.point) }));
           console.log('Firebase記録数:', firebaseRecords.length);
         }
       } catch (fbError) {
@@ -105,6 +105,7 @@ export default function OldRecordScreen() {
               allRecords.push({
                 id: key,
                 ...record,
+                point: isNaN(Number(record.point)) ? 0 : Number(record.point),
               });
             }
           }
@@ -170,6 +171,10 @@ export default function OldRecordScreen() {
 
   const pieData = Object.entries(subjectPoints) as [Subject, number][];
 
+  useEffect(() => {
+    console.log('dailyPoints:', dailyPoints);
+  }, [dailyPoints]);
+
   return (
     <ScrollView style={styles.container}>
       <ThemedText style={styles.title}>今までの記録</ThemedText>
@@ -204,15 +209,23 @@ export default function OldRecordScreen() {
             >
               <ThemedText style={styles.sectionTitle}>日別 推移</ThemedText>
               <Svg width={280} height={120}>
-                <Polyline
-                  points={dailyPoints
-                    .map((d, i) => `${i * 80 + 20},${100 - d.point * 2}`)
-                    .join(' ')}
-                  fill="none"
-                  stroke="#6C7BFA"
-                  strokeWidth="2"
-                />
-                <Line x1="10" y1="100" x2="290" y2="100" stroke="#ccc" />
+                {(() => {
+                  const maxPoint = Math.max(...dailyPoints.map(d => d.point), 1);
+                  const scale = 80 / maxPoint; // 80px の高さにスケール
+                  return (
+                    <>
+                      <Polyline
+                        points={dailyPoints
+                          .map((d, i) => `${i * 80 + 20},${100 - d.point * scale}`)
+                          .join(' ')}
+                        fill="none"
+                        stroke="#6C7BFA"
+                        strokeWidth="3"
+                      />
+                      <Line x1="10" y1="100" x2="290" y2="100" stroke="#ccc" />
+                    </>
+                  );
+                })()}
               </Svg>
             </TouchableOpacity>
 
@@ -238,10 +251,15 @@ export default function OldRecordScreen() {
 
                     const largeArc = sliceAngle > Math.PI ? 1 : 0;
 
+                    const x1 = cx + radius * Math.cos(startAngle);
+                    const y1 = cy + radius * Math.sin(startAngle);
+                    const x2 = cx + radius * Math.cos(endAngle);
+                    const y2 = cy + radius * Math.sin(endAngle);
+
                     const pathData = [
                       `M ${cx} ${cy}`,
-                      `L ${cx} ${cy}`,
-                      `A ${radius} ${radius} 0 ${largeArc} 1 ${cx} ${cy}`,
+                      `L ${x1} ${y1}`,
+                      `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
                       'Z',
                     ].join(' ');
 
