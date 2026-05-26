@@ -1,8 +1,6 @@
 import { Analytics, getAnalytics } from 'firebase/analytics';
-import { initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth/react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -11,13 +9,14 @@ const firebaseConfig = {
   projectId: "study-app-525e8",
   storageBucket: "study-app-525e8.firebasestorage.app",
   messagingSenderId: "241701972988",
-  appId: "1:241701972988:web:f7ab5d519b3f55f4452079",
+  appId: "1:241101972988:web:f7ab5d519b3f55f4452079",
   measurementId: "G-Y85YJLNB65"
 };
 
 console.log('[firebase] Initializing Firebase with config:', firebaseConfig.projectId);
 
-const app = initializeApp(firebaseConfig)
+// 二重初期化防止
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 let analytics: Analytics | undefined
 
@@ -31,12 +30,9 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const auth =
-  typeof window === 'undefined'
-    ? initializeAuth(app, {
-        persistence: getReactNativePersistence(AsyncStorage),
-      })
-    : getAuth(app);
+// Expoではfirebase/auth/react-nativeを使わず、getAuth()だけを使用
+// 各プラットフォームでのpersistenceは自動的に設定されます
+const auth = getAuth(app);
 const db = getFirestore(app);
 
 console.log('[firebase] Auth and Firestore initialized');

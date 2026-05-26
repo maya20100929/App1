@@ -5,8 +5,7 @@ import { router } from 'expo-router';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import {
   addDoc,
@@ -16,14 +15,16 @@ import {
   query,
   updateDoc
 } from 'firebase/firestore';
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions
+  useWindowDimensions,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 
@@ -43,6 +44,8 @@ const HomeScreen: FC = () => {
   const [newTaskText, setNewTaskText] = useState('');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const slideAnim = useRef(new Animated.Value(-250)).current;
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -216,6 +219,24 @@ const HomeScreen: FC = () => {
     setEditingText('');
   };
 
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
+    Animated.timing(slideAnim, {
+      toValue: menuOpen ? -250 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const closeMenu = () => {
+    setMenuOpen(false);
+    Animated.timing(slideAnim, {
+      toValue: -250,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
 
 
 
@@ -343,8 +364,69 @@ const HomeScreen: FC = () => {
   // ====== スマホ表示 ======
   if (isMobile) {
     return (
-      <ThemedView style={styles.container}>
-        <ScrollView>
+      <ThemedView style={styles.mobileContainer}>
+        <ThemedView style={styles.mobileHeader}>
+          <TouchableOpacity onPress={toggleMenu}>
+            <ThemedText style={styles.hamburgerIcon}>☰</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+
+        {menuOpen && (
+          <Pressable
+            style={styles.sidebarOverlayActive}
+            onPress={closeMenu}
+          />
+        )}
+
+        <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => {
+              router.push('/record');
+              closeMenu();
+            }}
+          >
+            <ThemedText style={styles.menuText}>記録</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => {
+              router.push('/oldrecord');
+              closeMenu();
+            }}
+          >
+            <ThemedText style={styles.menuText}>今までの記録</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => {
+              router.push('/testrecord');
+              closeMenu();
+            }}
+          >
+            <ThemedText style={styles.menuText}>テスト</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => {
+              router.push('/notification');
+              closeMenu();
+            }}
+          >
+            <ThemedText style={styles.menuText}>通知</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => {
+              router.push('/settingsscreen');
+              closeMenu();
+            }}
+          >
+            <ThemedText style={styles.menuText}>設定</ThemedText>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <ScrollView style={styles.mobileContent}>
         {!user && (
           <ThemedView style={{ alignItems: 'center', marginBottom: 12 }}>
             <TextInput
@@ -396,43 +478,6 @@ const HomeScreen: FC = () => {
             </ThemedView>
           </ThemedView>
         )}
-        {user && (
-          <ThemedView style={{ alignItems: 'flex-end', marginBottom: 8 }}>
-            <TouchableOpacity
-              style={styles.menuButton}
-              onPress={async () => {
-                console.log('Homescreen: logout pressed');
-                try {
-                  await signOut(auth);
-                  console.log('Homescreen: logout success');
-                } catch (e) {
-                  console.warn('logout failed', e);
-                  Alert.alert('ログアウトエラー', String(e));
-                }
-              }}
-            >
-              <ThemedText style={styles.menuText}>ログアウト</ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
-        )}
-        <ThemedView style={styles.menuRow}>
-          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/record')}>
-            <ThemedText style={styles.menuText}>記録</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/oldrecord')}>
-            <ThemedText style={styles.menuText}>今までの記録</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/testrecord')}>
-            <ThemedText style={styles.menuText}>テスト</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/notification')}>
-            <ThemedText style={styles.menuText}>通知</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/settingsscreen')}>
-            <ThemedText style={styles.menuText}>設定</ThemedText>
-          </TouchableOpacity>
-        </ThemedView>
-
         <ThemedView style={{ alignItems: 'center', marginBottom: 20 }}>
           <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
           <ThemedText style={styles.dateDisplay}>
@@ -495,6 +540,70 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
+
+  mobileContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+
+  mobileContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+
+  mobileHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fbf7ff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e2ff',
+    zIndex: 10,
+  },
+
+  hamburgerIcon: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#aaacf5ff',
+  },
+
+  sidebar: {
+    position: 'absolute',
+    left: 0,
+    top: 50,
+    bottom: 0,
+    width: 250,
+    backgroundColor: '#fbf7ff',
+    paddingTop: 20,
+    paddingHorizontal: 12,
+    zIndex: 100,
+    shadowColor: '#d6d8ff',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  sidebarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0)',
+    zIndex: 50,
+    pointerEvents: 'none',
+  },
+
+  sidebarOverlayActive: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 90,
+  },
 
   dateDisplay: {
     borderWidth: 1,
