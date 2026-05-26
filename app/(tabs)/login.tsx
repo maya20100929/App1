@@ -1,10 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
-import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import * as Google from 'expo-auth-session/providers/google';
+import { Link, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../lib/firebase';
