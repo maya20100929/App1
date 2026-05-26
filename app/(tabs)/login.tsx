@@ -2,10 +2,14 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import React, { useState } from 'react';
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../lib/firebase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState('');
@@ -14,7 +18,25 @@ export default function LoginScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    iosClientId: '',
+    androidClientId: '',
+    webClientId: '',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.params.id_token;
+      if (idToken) {
+        handleGoogleSignIn(idToken);
+      } else {
+        setErrorMessage('Google 認証に失敗しました。再度お試しください。');
+      }
+    } else if (response?.type === 'error') {
+      setErrorMessage('Google 認証がキャンセルされました。');
+    }
+  }, [response]);
 
   const validateForm = () => {
     const errors: string[] = [];
@@ -54,12 +76,22 @@ export default function LoginScreen() {
     }
   };
 
+  const handleGoogleSignIn = async (idToken: string) => {
+    try {
+      setErrorMessage('');
+      const credential = GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth, credential);
+      router.push('/Homescreen');
+    } catch (e: any) {
+      console.error('Google sign in failed', e);
+      setErrorMessage('Googleでのログインに失敗しました。');
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* ①題名 */}
       <ThemedText style={styles.title}>ログイン</ThemedText>
 
-      {/* ②メアド */}
       <TextInput
         style={styles.input}
         placeholder="メールアドレス"
@@ -67,7 +99,6 @@ export default function LoginScreen() {
         onChangeText={setUserId}
       />
 
-      {/* ③パスワード */}
       <View style={{ position: 'relative' }}>
         <TextInput
           style={styles.input}
@@ -83,30 +114,32 @@ export default function LoginScreen() {
           <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#666" />
         </TouchableOpacity>
       </View>
-      
-      {/* エラーメッセージ */}
+
       {errorMessage ? (
         <ThemedText style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>
           {errorMessage}
         </ThemedText>
       ) : null}
 
-      {/* ログインボタン */}
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <ThemedText style={styles.buttonText}>ログイン</ThemedText>
       </TouchableOpacity>
 
-      {/* 一本線 */}
+      <TouchableOpacity
+        style={[styles.button, styles.googleButton]}
+        onPress={() => promptAsync()}
+        disabled={!request}
+      >
+        <ThemedText style={styles.googleButtonText}>Googleでログイン</ThemedText>
+      </TouchableOpacity>
+
       <View style={styles.divider} />
 
-      {/* ④新規登録 */}
       <Link href="/register" asChild>
         <TouchableOpacity>
           <ThemedText style={styles.registerText}>新規登録はこちら</ThemedText>
         </TouchableOpacity>
       </Link>
-
-      
     </View>
   );
 }
@@ -117,8 +150,10 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#e8e2ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf7ff', fontFamily: Fonts.rounded },
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   linkText: { color: '#aaacf5ff', textDecorationLine: 'underline', marginLeft: 8 },
-  button: { backgroundColor: '#aaacf5ff', borderRadius: 24, padding: 14, alignItems: 'center', marginBottom: 24, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },
+  button: { backgroundColor: '#aaacf5ff', borderRadius: 24, padding: 14, alignItems: 'center', marginBottom: 16, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },
+  googleButton: { backgroundColor: '#4285F4' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  googleButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   divider: { height: 1, backgroundColor: '#aaacf5ff', marginVertical: 24 },
   registerText: { color: '#aaacf5ff', fontSize: 16, textAlign: 'center' },
   modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.25)' },

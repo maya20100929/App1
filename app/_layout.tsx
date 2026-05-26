@@ -5,9 +5,6 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export const unstable_settings = {
-  initialRouteName: 'index',
-};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -19,6 +16,7 @@ export default function RootLayout() {
           headerShown: false, // これを追加！これで全ての画面のヘッダー（白い帯）が消えます
         }}
       >
+          <Stack.Screen name="index" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>

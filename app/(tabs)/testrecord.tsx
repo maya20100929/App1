@@ -5,11 +5,12 @@ import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
-  View
+  View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 
@@ -228,7 +229,11 @@ export default function TestOverviewScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ padding: 18, flexGrow: 1 }}
+      keyboardShouldPersistTaps="handled"
+    >
       {/* 上段 */}
       <View style={[styles.headerRow, isMobile && styles.headerRowMobile]}>
         <View style={isMobile ? styles.fullWidth : undefined}>
@@ -392,6 +397,7 @@ export default function TestOverviewScreen() {
             <TextInput
               style={styles.memoInput}
               multiline
+              scrollEnabled={false}
               value={current.memoText}
               onChangeText={text =>
                 setSubjectData(prev => ({
@@ -407,7 +413,7 @@ export default function TestOverviewScreen() {
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -632,7 +638,6 @@ const styles = StyleSheet.create({
   },
 
   memoBox: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#aaacf5ff',
     padding: 14,
@@ -641,7 +646,7 @@ const styles = StyleSheet.create({
   },
 
   memoInput: {
-    flex: 1,
+    minHeight: 140,
     textAlignVertical: 'top',
     padding: 10,
     backgroundColor: '#fbf7ff',

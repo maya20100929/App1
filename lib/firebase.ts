@@ -1,6 +1,6 @@
 import { Analytics, getAnalytics } from 'firebase/analytics';
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -30,10 +30,24 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Expoではfirebase/auth/react-nativeを使わず、getAuth()だけを使用
-// 各プラットフォームでのpersistenceは自動的に設定されます
+// 初期化
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// iOS/Android (React Native) では AsyncStorage を用いた永続化を設定する
+// 注意: 'firebase/auth/react-native' は Web バンドルに存在しないため動的 import を使用する
+if (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative') {
+  (async () => {
+    try {
+      const { getReactNativePersistence } = await import('firebase/auth/react-native');
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      await setPersistence(auth, getReactNativePersistence(AsyncStorage));
+      console.log('[firebase] React Native auth persistence configured');
+    } catch (e) {
+      console.warn('[firebase] Failed to configure RN persistence', e);
+    }
+  })();
+}
 
 console.log('[firebase] Auth and Firestore initialized');
 
