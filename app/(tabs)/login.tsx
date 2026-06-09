@@ -22,7 +22,7 @@ export default function LoginScreen() {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     iosClientId: '',
     androidClientId: '',
-    webClientId: '',
+    webClientId: '241701972988-4f5mcf63nrmms507rh1brjd49f7eh2p5.apps.googleusercontent.com',
   });
 
   useEffect(() => {
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   linkText: { color: '#aaacf5ff', textDecorationLine: 'underline', marginLeft: 8 },
   button: { backgroundColor: '#aaacf5ff', borderRadius: 24, padding: 14, alignItems: 'center', marginBottom: 16, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },
-  googleButton: { backgroundColor: '#4285F4' },
+  googleButton: { backgroundColor: '#aaacf5ff' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   googleButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   divider: { height: 1, backgroundColor: '#aaacf5ff', marginVertical: 24 },

@@ -38,13 +38,14 @@ const HomeScreen: FC = () => {
     archived?: boolean;
   };
 
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<any | null>(() => auth.currentUser);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [testDateText, setTestDateText] = useState('');
   const slideAnim = useRef(new Animated.Value(-250)).current;
 
   useEffect(() => {
@@ -104,36 +105,44 @@ const HomeScreen: FC = () => {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setTestDateText('');
+      return;
+    }
 
     const userRef = doc(db, 'users', user.uid);
     const unsubUser = onSnapshot(userRef, snap => {
       const data = snap.data();
-      console.log('Homescreen: onSnapshot user doc', { uid: user.uid, data });
-      const raw = data?.testDate;
-
-      const normalized = normalizeDateField(raw);
-      console.log('Homescreen: normalized date', { raw, normalized });
+      const normalized = normalizeDateField(data?.testDate ?? '');
+      console.log('Homescreen: onSnapshot user doc', { uid: user.uid, testDate: data?.testDate, normalized });
       setTestDateText(normalized);
     });
 
     return () => unsubUser();
-  }, [user]);
+  }, [user?.uid]);
 
 
   const normalizeDateField = (raw: any) => {
     if (!raw) return '';
     if (raw instanceof Date) return raw.toISOString().slice(0, 10);
-    if ((raw as any).toDate && typeof (raw as any).toDate === 'function') {
+    if ((raw as any)?.toDate && typeof (raw as any).toDate === 'function') {
       try { return (raw as any).toDate().toISOString().slice(0, 10); } catch (e) { return ''; }
     }
-    if (typeof raw === 'string') return raw;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      const parsed = new Date(trimmed);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+      return trimmed;
+    }
+    if (typeof raw === 'number') {
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    }
     try {
       const d = new Date(raw);
       return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
     } catch (e) {
-      return '';
-    }
+      return ''; }
   };
 
 
@@ -170,10 +179,6 @@ const HomeScreen: FC = () => {
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
 
 
-
-
-  /* ===== テスト日付 ===== */
-  const [testDateText, setTestDateText] = useState('');
 
 
   const toggleTask = (id: string) => {

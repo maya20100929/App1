@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -127,20 +127,20 @@ export default function SettingsScreen() {
 
   // --- 追加: 設定項目リスト ---
   const settingsItems = [
-    { section: 'プロフィール', label: '名前・学年を設定', type: 'profile' },
+    // { section: 'プロフィール', label: '名前・学年を設定', type: 'profile' },
     { section: 'ポイント設定', label: 'ポイント計算ルール', type: 'unit' },
-    { section: 'テーマカラー', label: 'テーマカラー', type: 'color' },
-    { section: '利用履歴', label: '最終ログイン', type: 'text' },
-    { section: '通知', label: '通知オン/オフ（後で実装）', type: 'text' },
-    { section: 'プライバシー', label: '利用規約を見る', action: () => setTermsModalVisible(true) },
+    // { section: 'テーマカラー', label: 'テーマカラー', type: 'color' },
+    // { section: '利用履歴', label: '最終ログイン', type: 'text' },
+    // { section: '通知', label: '通知オン/オフ（後で実装）', type: 'text' },
+    { section: '利用規約', label: '利用規約を見る', action: () => setTermsModalVisible(true) },
     { section: 'プライバシー', label: 'プライバシーポリシー', action: () => setPrivacyModalVisible(true) },
-    { section: '言語', label: '日本語' },
-    { section: 'パスワード', label: 'パスワード変更' },
-    { section: 'データ', label: 'バックアップ / 復元' },
-    { section: 'ヘルプ', label: '使い方ガイドを見る' },
-    { section: '情報', label: 'バージョン: 1.0.0' },
-    { section: '情報', label: '開発者: あなたの名前' },
-    { section: 'アカウント', label: 'ログアウト', action: handleLogout },
+    // { section: '言語', label: '日本語' },
+    // { section: 'パスワード', label: 'パスワード変更' },
+    // { section: 'データ', label: 'バックアップ / 復元',type: 'text' },
+    { section: 'ヘルプ', label: '使い方ガイドを見る',type: 'help'},
+    // { section: '情報', label: 'バージョン: 1.0.0' },
+    // { section: '情報', label: '開発者: あなたの名前' },
+    { section: 'ログアウト', label: 'ログアウト', action: handleLogout },
     { section: 'アカウント', label: 'アカウント削除', action: handleDeleteAccount },
   ]; // --- 追加ここまで ---
 
@@ -257,6 +257,25 @@ export default function SettingsScreen() {
           );
         }
 
+        if (item.type === 'help') {
+  return (
+    <View key={index}>
+      <ThemedText style={styles.sectionTitle}>{item.section}</ThemedText>
+
+      <View style={styles.box}>
+        <TouchableOpacity
+          style={styles.itemButton}
+          onPress={() => router.push('/help')}
+        >
+          <ThemedText style={styles.itemText}>
+            {item.label}
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
         if (item.type === 'color') {
           // テーマカラー
           return (
@@ -307,6 +326,8 @@ export default function SettingsScreen() {
           );
         }
 
+        // if (item.type === 'help') {router.push('/help');return;}
+        // <TouchableOpacity onPress={() => router.push('/help')}>
 
         // 通常のボタンやテキスト
         return (
@@ -327,6 +348,8 @@ export default function SettingsScreen() {
           </View>
         );
       })}
+
+  
 
       {/* 利用規約モーダル */}
       <Modal
