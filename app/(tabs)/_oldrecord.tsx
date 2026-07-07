@@ -230,11 +230,11 @@ export default function OldRecordScreen() {
    styles
 ===================== */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff3ff' },
+  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', color: '#aaacf5ff', marginBottom: 10 },
 
   totalBox: {
-    backgroundColor: '#f7f3ff',
+    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 20,
     marginVertical: 16,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: '#aaacf5ff',
     borderRadius: 18,
     padding: 16,
-    backgroundColor: '#faf4ff',
+    backgroundColor: '#fff',
     marginBottom: 14,
   },
 

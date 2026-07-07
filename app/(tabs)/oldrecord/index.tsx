@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 16, textAlign: 'center', marginTop: 20 },
 
   totalBox: {
-    backgroundColor: '#eef0ff',
+    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 8,
     marginVertical: 16,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 8,
     padding: 12,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#fff',
   },
 
   sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },

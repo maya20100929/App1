@@ -297,10 +297,10 @@ const webInput: React.CSSProperties = {
 
 /* ===== styles ===== */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 18, backgroundColor: '#fff3ff' },
+  container: { flex: 1, padding: 18, backgroundColor: '#fff' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 12, color: '#aaacf5ff' },
-  addBox: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, backgroundColor: '#f8f1ff' },
-  input: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 10, borderRadius: 16, marginBottom: 10, backgroundColor: '#fbf7ff', fontFamily: Fonts.rounded },
+  addBox: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, backgroundColor: '#fff' },
+  input: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 10, borderRadius: 16, marginBottom: 10, backgroundColor: '#fff', fontFamily: Fonts.rounded },
 
   webInputWrapper: {
     borderWidth: 1,
@@ -309,12 +309,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
   },
 
   addButton: { backgroundColor: '#aaacf5ff', padding: 12, borderRadius: 18, alignItems: 'center' },
-  card: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, marginBottom: 14, backgroundColor: '#f8f1ff' },
-  historyCard: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, marginBottom: 14, backgroundColor: '#fff3ff' },
+  card: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, marginBottom: 14, backgroundColor: '#fff' },
+  historyCard: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, marginBottom: 14, backgroundColor: '#fff' },
   taskText: { fontSize: 16, fontWeight: 'bold', color: '#aaacf5ff' },
   timeText: { color: '#aaacf5ff' },
   buttons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },

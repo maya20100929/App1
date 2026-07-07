@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
   },
   boxTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
   boxItem: { fontSize: 14, marginVertical: 4 },
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 8,
     padding: 12,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#fff',
   },
   detailsTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
   recordItem: {

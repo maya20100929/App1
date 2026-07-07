@@ -251,14 +251,14 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff4ff' },
+  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
   title: { fontSize: 32, fontWeight: 'bold', marginBottom: 32, textAlign: 'center', color: '#aaacf5ff' },
-  input: { borderWidth: 1, borderColor: '#f0e8ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf5ff', fontFamily: Fonts.rounded },
+  input: { borderWidth: 1, borderColor: '#f0e8ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fff', fontFamily: Fonts.rounded },
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   linkText: { color: '#aaacf5ff', textDecorationLine: 'underline', marginLeft: 8 },
   button: { backgroundColor: '#aaacf5ff', borderRadius: 22, padding: 14, alignItems: 'center', marginBottom: 24, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },
   buttonText: { color: '#fff', fontSize: 16 },
-  divider: { height: 1, backgroundColor: '#f0e7ff', marginVertical: 24 },
+  divider: { height: 1, backgroundColor: '#fff', marginVertical: 24 },
   registerText: { color: '#aaacf5ff', fontSize: 16, textAlign: 'center' },
   modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.25)' },
   modalContent: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '80%' },

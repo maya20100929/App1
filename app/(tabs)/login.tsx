@@ -145,9 +145,9 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff3ff' },
+  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
   title: { fontSize: 36, fontWeight: 'bold', marginBottom: 32, textAlign: 'center', color: '#8a2f8a' },
-  input: { borderWidth: 1, borderColor: '#e8e2ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fbf7ff', fontFamily: Fonts.rounded },
+  input: { borderWidth: 1, borderColor: '#e8e2ff', borderRadius: 18, padding: 14, marginBottom: 16, fontSize: 16, backgroundColor: '#fff', fontFamily: Fonts.rounded },
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   linkText: { color: '#aaacf5ff', textDecorationLine: 'underline', marginLeft: 8 },
   button: { backgroundColor: '#aaacf5ff', borderRadius: 24, padding: 14, alignItems: 'center', marginBottom: 16, shadowColor: '#d6d8ff', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },

@@ -498,10 +498,10 @@ export default function SettingsScreen() {
 
 // --- スタイルはそのまま ---
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: '#fff3ff' },
+  container: { flex: 1, padding: 24, backgroundColor: '#fff' },
 
   searchInput: {
-    backgroundColor: '#fbf5ff',
+    backgroundColor: '#fff',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#aaacf5ff',
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
 
   box: {
-    backgroundColor: '#f8f1ff',
+    backgroundColor: '#fff',
     padding: 18,
     borderRadius: 18,
     marginBottom: 20,
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginBottom: 16,
     overflow: 'hidden',
-    backgroundColor: '#fbf5ff',
+    backgroundColor: '#fff',
   },
   input: {
     borderWidth: 1,
@@ -606,11 +606,11 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     fontSize: 14,
-    backgroundColor: '#fbf5ff',
+    backgroundColor: '#fff',
     fontFamily: Fonts.rounded,
   },
   unitItem: {
-    backgroundColor: '#f6eff8',
+    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 14,
     marginBottom: 8,

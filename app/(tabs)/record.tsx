@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 18,
-    backgroundColor: '#fff3ff',
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 26,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginBottom: 16,
     overflow: 'hidden',
-    backgroundColor: '#fff3ff',
+    backgroundColor: '#fff',
   },
   input: {
     borderWidth: 1,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     marginBottom: 16,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
     fontFamily: Fonts.rounded,
   },
   switchRow: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pointBox: {
-    backgroundColor: '#faf4ff',
+    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 18,
     marginBottom: 24,

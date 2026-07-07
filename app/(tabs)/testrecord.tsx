@@ -419,7 +419,7 @@ export default function TestOverviewScreen() {
 
 /* ===== styles ===== */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 18, backgroundColor: '#fff3ff' },
+  container: { flex: 1, padding: 18, backgroundColor: '#fff' },
 
   headerRow: {
     flexDirection: 'row',
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#aaacf5ff',
     borderRadius: 18,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
     paddingVertical: 10,
     paddingHorizontal: 12,
     width: 160,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     borderColor: '#aaacf5ff',
     borderRadius: 20,
     padding: 12,
-    backgroundColor: '#f7f3ff',
+    backgroundColor: '#fff',
   },
 
   goalBoxMobile: {
@@ -483,14 +483,14 @@ const styles = StyleSheet.create({
     minHeight: 68,
     textAlignVertical: 'top',
     borderRadius: 16,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
     padding: 10,
     fontFamily: Fonts.rounded,
   },
 
   divider: {
     height: 1,
-    backgroundColor: '#e8e2ff',
+    backgroundColor: '#fff',
     marginVertical: 18,
   },
 
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   subjectTab: {
     paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: '#f0edff',
+    backgroundColor: '#fff',
     borderRadius: 16,
     marginRight: 8,
   },
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   progressBarBg: {
     width: 90,
     height: 10,
-    backgroundColor: '#f2efff',
+    backgroundColor: '#fff',
     borderRadius: 6,
   },
 
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 14,
     borderRadius: 18,
-    backgroundColor: '#f8f1ff',
+    backgroundColor: '#fff',
   },
 
   boxTitle: { fontSize: 13, marginBottom: 6, color: '#aaacf5ff' },
@@ -642,14 +642,14 @@ const styles = StyleSheet.create({
     borderColor: '#aaacf5ff',
     padding: 14,
     borderRadius: 18,
-    backgroundColor: '#fff3ff',
+    backgroundColor: '#fff',
   },
 
   memoInput: {
     minHeight: 140,
     textAlignVertical: 'top',
     padding: 10,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
     borderRadius: 16,
     fontFamily: Fonts.rounded,
   },

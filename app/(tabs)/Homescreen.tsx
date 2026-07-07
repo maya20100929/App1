@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
-import { router } from 'expo-router';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -15,11 +14,10 @@ import {
   query,
   updateDoc
 } from 'firebase/firestore';
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 import {
   Alert,
   Animated,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -44,9 +42,12 @@ const HomeScreen: FC = () => {
   const [newTaskText, setNewTaskText] = useState('');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [testDateText, setTestDateText] = useState('');
-  const slideAnim = useRef(new Animated.Value(-250)).current;
+  const newTaskInputRef = React.useRef<TextInput | null>(null);
+  const [previousMessages, setPreviousMessages] = useState([
+    { id: 'message-1', text: 'あいうえお', done: false },
+    { id: 'message-2', text: 'かきくけこ', done: false },
+  ]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -59,9 +60,6 @@ const HomeScreen: FC = () => {
   // listen to tasks for current user
   useEffect(() => {
     if (!user) {
-      setTodayTasks([]);
-      setPastTasks([]);
-      setArchivedTasks([]);
       return;
     }
 
@@ -182,15 +180,23 @@ const HomeScreen: FC = () => {
 
 
   const toggleTask = (id: string) => {
-    // update in Firestore
     (async () => {
-      if (!user) return;
       const all = [...todayTasks, ...pastTasks, ...archivedTasks];
       const target = all.find(t => t.id === id);
       if (!target) return;
+
+      const nextDone = !target.done;
+
+      if (!user) {
+        setTodayTasks(prev => prev.map(task => task.id === id ? { ...task, done: nextDone } : task));
+        setPastTasks(prev => prev.map(task => task.id === id ? { ...task, done: nextDone } : task));
+        setArchivedTasks(prev => prev.map(task => task.id === id ? { ...task, done: nextDone } : task));
+        return;
+      }
+
       const taskRef = doc(db, 'users', user.uid, 'tasks', id);
       try {
-        await updateDoc(taskRef, { done: !target.done });
+        await updateDoc(taskRef, { done: nextDone });
       } catch (e) {
         console.warn('toggleTask update failed', e);
       }
@@ -199,15 +205,21 @@ const HomeScreen: FC = () => {
 
   const saveEdit = (id: string) => {
     (async () => {
-      if (!user) {
-        Alert.alert('ログインが必要', 'タスクを編集するにはログインしてください。');
-        return;
-      }
       const text = editingText.trim();
       if (!text) {
         Alert.alert('入力してください', '編集内容を入力してください。');
         return;
       }
+
+      if (!user) {
+        setTodayTasks(prev => prev.map(task => task.id === id ? { ...task, text } : task));
+        setPastTasks(prev => prev.map(task => task.id === id ? { ...task, text } : task));
+        setArchivedTasks(prev => prev.map(task => task.id === id ? { ...task, text } : task));
+        setEditingTaskId(null);
+        setEditingText('');
+        return;
+      }
+
       const taskRef = doc(db, 'users', user.uid, 'tasks', id);
       try {
         await updateDoc(taskRef, { text });
@@ -224,30 +236,156 @@ const HomeScreen: FC = () => {
     setEditingText('');
   };
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
-    Animated.timing(slideAnim, {
-      toValue: menuOpen ? -250 : 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
+  const handleAddTask = async () => {
+    console.log('Homescreen: add button pressed', { newTaskText, userPresent: !!user });
+    const text = newTaskText.trim();
+    if (!text) {
+      Alert.alert('入力してください', 'タスク内容を入力してください。');
+      return;
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const newTask = {
+      id: `local-${Date.now()}`,
+      text,
+      done: false,
+      date: dateStr,
+      archived: false,
+    };
+
+    if (!user) {
+      setTodayTasks(prev => [...prev, newTask]);
+      setNewTaskText('');
+      console.log('Homescreen: saved task locally');
+      return;
+    }
+
+    const tasksRef = collection(db, 'users', user.uid, 'tasks');
+    try {
+      console.log('Homescreen: adding task', text);
+      const docRef = await addDoc(tasksRef, {
+        text,
+        done: false,
+        date: dateStr,
+        archived: false,
+        createdAt: Date.now(),
+      });
+      setTodayTasks(prev => [...prev, { ...newTask, id: docRef.id }]);
+      setNewTaskText('');
+      console.log('Homescreen: addTask succeeded');
+    } catch (e: unknown) {
+      console.warn('addTask failed', e);
+      const msg = e instanceof Error ? e.message : 'タスクの追加に失敗しました。';
+      Alert.alert('エラー', msg);
+    }
   };
-
-  const closeMenu = () => {
-    setMenuOpen(false);
-    Animated.timing(slideAnim, {
-      toValue: -250,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  };
-
-
-
 
   const { width } = useWindowDimensions();
   const isPC = width > 600;
   const isMobile = !isPC;
+
+  type TaskRowProps = {
+    task: Task;
+    editingTaskId: string | null;
+    editingText: string;
+    onToggle: (id: string) => void;
+    onSaveEdit: (id: string) => void;
+    onCancelEdit: () => void;
+    onStartEdit: (task: Task) => void;
+    onSetEditingText: (text: string) => void;
+  };
+
+  const TaskRow: FC<TaskRowProps> = ({
+    task,
+    editingTaskId,
+    editingText,
+    onToggle,
+    onSaveEdit,
+    onCancelEdit,
+    onStartEdit,
+    onSetEditingText,
+  }) => {
+    const translateY = React.useRef(new Animated.Value(12)).current;
+    const opacity = React.useRef(new Animated.Value(0)).current;
+    const shouldAnimate = task.done;
+
+    useEffect(() => {
+      if (!shouldAnimate) {
+        opacity.setValue(1);
+        translateY.setValue(0);
+        return;
+      }
+
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, [opacity, translateY, shouldAnimate]);
+
+    const rowContent = (
+      <ThemedView style={styles.checklistRow}>
+        <TouchableOpacity onPress={() => onToggle(task.id)} style={styles.checkButton}>
+          <ThemedText style={styles.checkButtonText}>{task.done ? '☑' : '☐'}</ThemedText>
+        </TouchableOpacity>
+
+        {editingTaskId === task.id ? (
+          <ThemedView style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+            <TextInput
+              style={[styles.dateInput, { flex: 1, marginRight: 8 }]}
+              value={editingText}
+              onChangeText={onSetEditingText}
+              placeholder="タスクを編集"
+            />
+            <TouchableOpacity onPress={() => onSaveEdit(task.id)} style={[styles.addButton, { paddingHorizontal: 12 }]}>
+              <ThemedText style={styles.addButtonText}>保存</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onCancelEdit} style={[styles.menuButton, { marginLeft: 8 }]}>
+              <ThemedText style={styles.menuText}>キャンセル</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        ) : (
+          <ThemedView style={styles.checklistContent}>
+            <ThemedText
+              style={[
+                styles.bullet,
+                styles.checklistText,
+                task.done && { textDecorationLine: 'line-through' },
+              ]}
+            >
+              {task.text}
+            </ThemedText>
+
+            <TouchableOpacity onPress={() => onStartEdit(task)} style={styles.editButton}>
+              <ThemedText style={styles.editButtonText}>編集</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        )}
+      </ThemedView>
+    );
+
+    if (!shouldAnimate) {
+      return rowContent;
+    }
+
+    return (
+      <Animated.View
+        style={{
+          opacity,
+          transform: [{ translateY }],
+        }}
+      >
+        {rowContent}
+      </Animated.View>
+    );
+  };
 
   // 共通レンダリング関数
 
@@ -255,100 +393,66 @@ const HomeScreen: FC = () => {
     <ThemedView style={[styles.section, styles.box]}>
       <ThemedText style={styles.sectionTitle}>今日やること</ThemedText>
 
-      {todayTasks.map(task => (
-        <ThemedView key={task.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-          <TouchableOpacity onPress={() => toggleTask(task.id)} style={{ marginRight: 8 }}>
-            <ThemedText>{task.done ? '☑' : '☐'}</ThemedText>
-          </TouchableOpacity>
-
-          {editingTaskId === task.id ? (
-            <ThemedView style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-              <TextInput
-                style={[styles.dateInput, { flex: 1, marginRight: 8 }]}
-                value={editingText}
-                onChangeText={setEditingText}
-                placeholder="タスクを編集"
-              />
-              <TouchableOpacity onPress={() => saveEdit(task.id)} style={[styles.addButton, { paddingHorizontal: 12 }]}>
-                <ThemedText style={styles.addButtonText}>保存</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={cancelEdit} style={[styles.menuButton, { marginLeft: 8 }]}>
-                <ThemedText style={styles.menuText}>キャンセル</ThemedText>
-              </TouchableOpacity>
-            </ThemedView>
-          ) : (
-            <>
-              <ThemedText
-                style={[
-                  styles.bullet,
-                  task.done && { textDecorationLine: 'line-through' },
-                ]}
-              >
-                {task.text}
-              </ThemedText>
-
-              <TouchableOpacity onPress={() => { setEditingTaskId(task.id); setEditingText(task.text); }} style={{ marginLeft: 8 }}>
-                <ThemedText style={{ color: '#007AFF' }}>編集</ThemedText>
-              </TouchableOpacity>
-            </>
-          )}
+      <ThemedView style={styles.inputRow}>
+        <ThemedView style={styles.inputWrapper}>
+          <TextInput
+            ref={newTaskInputRef}
+            style={[styles.dateInput, styles.inputField]}
+            value={newTaskText}
+            onChangeText={setNewTaskText}
+            placeholder="新しいタスク"
+            placeholderTextColor="#b8b8b8"
+            editable={true}
+            autoFocus={false}
+            onSubmitEditing={handleAddTask}
+            returnKeyType="done"
+          />
         </ThemedView>
-      ))}
-      <ThemedView style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-        <TextInput
-          style={[styles.dateInput, { flex: 1, marginRight: 8 }]}
-          value={newTaskText}
-          onChangeText={setNewTaskText}
-          placeholder="新しいタスク"
-        />
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={async () => {
-            console.log('Homescreen: add button pressed', { newTaskText, userPresent: !!user });
-            if (!user) {
-              Alert.alert('ログインが必要', 'タスクを追加するにはログインしてください。');
-              return;
-            }
-            const text = newTaskText.trim();
-            if (!text) {
-              Alert.alert('入力してください', 'タスク内容を入力してください。');
-              return;
-            }
-            const tasksRef = collection(db, 'users', user.uid, 'tasks');
-            const dateStr = new Date().toISOString().slice(0, 10);
-            try {
-              console.log('Homescreen: adding task', text);
-              await addDoc(tasksRef, {
-                text,
-                done: false,
-                date: dateStr,
-                archived: false,
-                createdAt: Date.now(),
-              });
-              setNewTaskText('');
-              console.log('Homescreen: addTask succeeded');
-            } catch (e: unknown) {
-              console.warn('addTask failed', e);
-              const msg =
-                e instanceof Error ? e.message : 'タスクの追加に失敗しました。';
-              Alert.alert('エラー', msg);
-            }
-
-          }}
-        >
-          <ThemedText style={styles.addButtonText}>＋</ThemedText>
+        <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
+          <ThemedText style={styles.addButtonText}>保存</ThemedText>
         </TouchableOpacity>
       </ThemedView>
+
+      {todayTasks.map(task => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          editingTaskId={editingTaskId}
+          editingText={editingText}
+          onToggle={toggleTask}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onStartEdit={(selectedTask) => {
+            setEditingTaskId(selectedTask.id);
+            setEditingText(selectedTask.text);
+          }}
+          onSetEditingText={setEditingText}
+        />
+      ))}
     </ThemedView>
   );
 
+  const togglePreviousMessage = (id: string) => {
+    setPreviousMessages(prev =>
+      prev.map(item => (item.id === id ? { ...item, done: !item.done } : item))
+    );
+  };
+
   const renderPreviousMessages = () => (
-    <ThemedView style={[styles.section, styles.box]}>
+    <ThemedView style={styles.section}>
       <ThemedText style={styles.sectionTitle}>
-        昨日までで出来てないこと & 昨日からの自分へのメッセージ
+        引き継ぎ
       </ThemedText>
-      <ThemedText>・あいうえお</ThemedText>
-      <ThemedText>・かきくけこ</ThemedText>
+      {previousMessages.map(item => (
+        <ThemedView key={item.id} style={styles.checklistRow}>
+          <TouchableOpacity onPress={() => togglePreviousMessage(item.id)} style={styles.checkButton}>
+            <ThemedText style={styles.checkButtonText}>{item.done ? '☑' : '☐'}</ThemedText>
+          </TouchableOpacity>
+          <ThemedText style={[styles.bullet, styles.checklistText, item.done && { textDecorationLine: 'line-through' }]}>
+            {item.text}
+          </ThemedText>
+        </ThemedView>
+      ))}
     </ThemedView>
   );
 
@@ -370,67 +474,6 @@ const HomeScreen: FC = () => {
   if (isMobile) {
     return (
       <ThemedView style={styles.mobileContainer}>
-        <ThemedView style={styles.mobileHeader}>
-          <TouchableOpacity onPress={toggleMenu}>
-            <ThemedText style={styles.hamburgerIcon}>☰</ThemedText>
-          </TouchableOpacity>
-        </ThemedView>
-
-        {menuOpen && (
-          <Pressable
-            style={styles.sidebarOverlayActive}
-            onPress={closeMenu}
-          />
-        )}
-
-        <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => {
-              router.push('/record');
-              closeMenu();
-            }}
-          >
-            <ThemedText style={styles.menuText}>記録</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => {
-              router.push('/oldrecord');
-              closeMenu();
-            }}
-          >
-            <ThemedText style={styles.menuText}>今までの記録</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => {
-              router.push('/testrecord');
-              closeMenu();
-            }}
-          >
-            <ThemedText style={styles.menuText}>テスト</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => {
-              router.push('/notification');
-              closeMenu();
-            }}
-          >
-            <ThemedText style={styles.menuText}>通知</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => {
-              router.push('/settingsscreen');
-              closeMenu();
-            }}
-          >
-            <ThemedText style={styles.menuText}>設定</ThemedText>
-          </TouchableOpacity>
-        </Animated.View>
-
         <ScrollView style={styles.mobileContent}>
         {!user && (
           <ThemedView style={{ alignItems: 'center', marginBottom: 12 }}>
@@ -500,24 +543,6 @@ const HomeScreen: FC = () => {
   // ====== PC表示 ======
   return (
     <ThemedView style={styles.pcContainer}>
-      <ThemedView style={styles.sideMenu}>
-        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/record')}>
-          <ThemedText style={styles.menuText}>記録</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/oldrecord')}>
-          <ThemedText style={styles.menuText}>今までの記録</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/testrecord')}>
-          <ThemedText style={styles.menuText}>テスト</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/notification')}>
-          <ThemedText style={styles.menuText}>通知</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/settingsscreen')}>
-          <ThemedText style={styles.menuText}>設定</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-
       <ScrollView style={styles.mainArea}>
         <ThemedView style={[styles.topRow, { alignItems: 'center' }]}> 
           <ThemedView>
@@ -560,7 +585,7 @@ const styles = StyleSheet.create({
   mobileHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e8e2ff',
     zIndex: 10,
@@ -578,7 +603,7 @@ const styles = StyleSheet.create({
     top: 50,
     bottom: 0,
     width: 250,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
     paddingTop: 20,
     paddingHorizontal: 12,
     zIndex: 100,
@@ -650,7 +675,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e8e2ff',
     borderRadius: 18,
-    backgroundColor: '#fbf7ff',
+    backgroundColor: '#fff',
     paddingVertical: 10,
     paddingHorizontal: 12,
     width: 160,
@@ -672,10 +697,68 @@ const styles = StyleSheet.create({
 
   goalText: { fontSize: 16, color: '#aaacf5ff' },
 
-  bullet: { fontSize: 16, marginBottom: 4, color: '#aaacf5ff' },
+  bullet: { fontSize: 16, marginBottom: 0, color: '#aaacf5ff' },
+
+  checklistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    minHeight: 28,
+  },
+
+  checkButton: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  checkButtonText: {
+    fontSize: 18,
+    lineHeight: 18,
+  },
+
+  checklistContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  checklistText: {
+    flex: 1,
+    marginBottom: 0,
+  },
+
+  editButton: {
+    marginLeft: 8,
+    paddingVertical: 2,
+  },
+
+  editButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+  },
+
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+
+  inputWrapper: {
+    flex: 1,
+    marginRight: 8,
+  },
+
+  inputField: {
+    flex: 1,
+    marginBottom: 0,
+    width: '100%',
+  },
 
   addButton: {
-    marginTop: 8,
     backgroundColor: '#aaacf5ff',
     padding: 10,
     borderRadius: 20,

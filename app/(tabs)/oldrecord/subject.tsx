@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#eee',
   },
