@@ -31,6 +31,8 @@ type SubjectData = {
 export default function TestOverviewScreen() {
   const [selectedSubject, setSelectedSubject] = useState<Subject>('数学');
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isGoalFocused, setIsGoalFocused] = useState(false);
+  const [isDateFocused, setIsDateFocused] = useState(false);
 
   /* ===== テスト日付 ===== */
   const [testDateText, setTestDateText] = useState('2025-12-10');
@@ -74,7 +76,9 @@ export default function TestOverviewScreen() {
 
   const isValidYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-  const saveTestInfo = async () => {
+  const saveTestInfo = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+
     if (!user) {
       Alert.alert('ログインが必要', 'テスト情報を保存するにはログインしてください。');
       return;
@@ -86,20 +90,19 @@ export default function TestOverviewScreen() {
     }
 
     try {
-      // store as normalized YYYY-MM-DD string, but don't overwrite existing fields when empty
       const payload: any = {};
       if (goalText && goalText.trim() !== '') payload.testGoal = goalText;
       if (testDateText) payload.testDate = testDateText;
       console.log('testrecord: saving user doc', JSON.stringify(payload));
       if (Object.keys(payload).length === 0) {
-        Alert.alert('保存する内容がありません');
+        if (!silent) Alert.alert('保存する内容がありません');
         return;
       }
       await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
       const snap = await getDoc(doc(db, 'users', user.uid));
       console.log('testrecord: saved doc snapshot', JSON.stringify(snap.data()));
       console.log('testrecord: save succeeded');
-      Alert.alert('保存しました');
+      if (!silent) Alert.alert('保存しました');
     } catch (e) {
       console.warn('saveTestInfo failed', e);
       Alert.alert('保存に失敗しました');
@@ -241,14 +244,16 @@ export default function TestOverviewScreen() {
 
           <View style={styles.dateRow}>
             <TextInput
-              style={styles.dateInput}
+              style={[styles.dateInput, isDateFocused && styles.dateInputActive]}
               value={testDateText}
               onChangeText={setTestDateText}
               placeholder="YYYY-MM-DD"
+              onFocus={() => setIsDateFocused(true)}
+              onBlur={() => {
+                setIsDateFocused(false);
+                saveTestInfo({ silent: true });
+              }}
             />
-            <TouchableOpacity style={styles.saveButton} onPress={saveTestInfo}>
-              <ThemedText style={styles.buttonText}>保存</ThemedText>
-            </TouchableOpacity>
             {daysLeft !== null && (
               <ThemedText style={styles.daysLeft}>
                 残り <ThemedText style={styles.daysLeftNumber}>{daysLeft}</ThemedText> 日
@@ -259,20 +264,26 @@ export default function TestOverviewScreen() {
 
         <View style={[styles.goalBox, isMobile && styles.goalBoxMobile]}>
           <ThemedText style={styles.goalLabel}>目標</ThemedText>
-          <TextInput
-            style={styles.goalInput}
-            multiline
-            placeholder="今回のテストの目標"
-            value={goalText}
-            onChangeText={setGoalText}
-          />
-          <View style={{ flexDirection: 'row', marginTop: 8, justifyContent: 'flex-end' }}>
-            <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12 }]} onPress={saveTestInfo}>
-              <ThemedText style={styles.buttonText}>保存</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.addButton, { paddingHorizontal: 12, marginLeft: 8 }]} onPress={deleteTestInfo}>
-              <ThemedText style={styles.buttonText}>削除</ThemedText>
-            </TouchableOpacity>
+          <View
+            style={[
+              styles.goalInputContainer,
+              isGoalFocused && styles.goalInputContainerActive,
+            ]}
+          >
+            <TextInput
+              style={styles.goalInput}
+              multiline
+              placeholder="今回のテストの目標"
+              placeholderTextColor="#9ca3af"
+              value={goalText}
+              onChangeText={setGoalText}
+              onFocus={() => setIsGoalFocused(true)}
+              onBlur={() => {
+                setIsGoalFocused(false);
+                saveTestInfo({ silent: true });
+              }}
+              scrollEnabled={false}
+            />
           </View>
         </View>
       </View>
@@ -450,6 +461,10 @@ const styles = StyleSheet.create({
     width: 160,
     fontFamily: Fonts.rounded,
   },
+
+  dateInputActive: {
+    borderColor: '#8a3a82',
+  },
   daysLeft: {
     marginTop: 6,
     fontSize: 14,
@@ -479,13 +494,33 @@ const styles = StyleSheet.create({
 
   goalLabel: { fontSize: 12, color: '#aaacf5ff' },
 
+  goalInputContainer: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#aaacf5ff',
+    borderRadius: 16,
+    padding: 2,
+    backgroundColor: '#fff',
+  },
+
+  goalInputContainerIdle: {
+    borderColor: '#d1d5db',
+    backgroundColor: '#f3f4f6',
+  },
+
+  goalInputContainerActive: {
+    borderColor: '#aaacf5ff',
+    backgroundColor: '#fff',
+  },
+
   goalInput: {
     minHeight: 68,
     textAlignVertical: 'top',
     borderRadius: 16,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     padding: 10,
     fontFamily: Fonts.rounded,
+    color: '#4A1D4D',
   },
 
   divider: {

@@ -7,10 +7,9 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
-  Switch,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord } from '../../lib/recordStore';
 
@@ -18,6 +17,7 @@ import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMate
    型定義
 ===================== */
 type Subject = '数学' | '英語' | '国語' | '理科' | '社会';
+type Difficulty = '' | '1' | '2' | '3';
 
 type SubjectRule = {
   subject: Subject;
@@ -72,10 +72,9 @@ export default function RecordScreen() {
 
   const [content, setContent] = useState('');
   const [amount, setAmount] = useState('');
+  const [difficulty, setDifficulty] = useState<Difficulty>('');
 
   const [selectedUnit, setSelectedUnit] = useState('');
-  const [customUnit, setCustomUnit] = useState('');
-  const [customPointPerUnit, setCustomPointPerUnit] = useState('1');
 
   // カスタム教材と定義済み教材を合わせたリスト
   const [allMaterials, setAllMaterials] = useState<{ name: string; rate: number }[]>([]);
@@ -143,7 +142,7 @@ export default function RecordScreen() {
   /* =====================
      実際に使う単位
   ===================== */
-  const actualUnit = customUnit || selectedUnit;
+  const actualUnit = selectedUnit;
 
   /* =====================
      ポイント計算（単位ベース）
@@ -179,6 +178,7 @@ export default function RecordScreen() {
         amount: Number(amount),
         unit: actualUnit,
         point,
+        ...(difficulty ? { difficulty } : {}),
       };
 
       // recordを保存（FirebaseまたはAsyncStorageにフォールバック）
@@ -200,9 +200,11 @@ export default function RecordScreen() {
         }
       }
 
+      const difficultyLabel = difficulty ? '★'.repeat(Number(difficulty)) : '未選択';
+
       Alert.alert(
         '保存しました',
-        `${subject} / ${actualMaterial}\n${amount}${actualUnit} → ${point} pt`
+        `${subject} / ${actualMaterial}\n${amount}${actualUnit} → ${point} pt\n難易度：${difficultyLabel}`
       );
 
       // フォームをリセット
@@ -211,8 +213,7 @@ export default function RecordScreen() {
       setCustomPointRate('1');
       setContent('');
       setAmount('');
-      setCustomUnit('');
-      setCustomPointPerUnit('1');
+      setDifficulty('');
 
       // 教材リストを再読み込み後、最初のユニットを選択
       try {
@@ -234,7 +235,7 @@ export default function RecordScreen() {
       console.error('Save error:', error);
       Alert.alert('エラー', '保存に失敗しました');
     }
-  }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, point, customMaterial]);
+  }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, point, customMaterial, difficulty]);
 
   return (
     <ScrollView style={styles.container}>
@@ -291,6 +292,17 @@ export default function RecordScreen() {
         onChangeText={setContent}
       />
 
+      {/* 難易度 */}
+      <ThemedText style={styles.label}>難易度</ThemedText>
+      <View style={styles.pickerWrapper}>
+        <Picker selectedValue={difficulty} onValueChange={value => setDifficulty(value as Difficulty)}>
+          <Picker.Item label="選択しない" value="" />
+          <Picker.Item label="★" value="1" />
+          <Picker.Item label="★★" value="2" />
+          <Picker.Item label="★★★" value="3" />
+        </Picker>
+      </View>
+
       {/* 単位選択 */}
       <ThemedText style={styles.label}>単位</ThemedText>
       {unitOptions.length > 0 ? (
@@ -304,32 +316,6 @@ export default function RecordScreen() {
         </View>
       ) : (
         <ThemedText style={styles.noDataText}>設定画面で単位を設定してください</ThemedText>
-      )}
-
-      {/* カスタム単位 */}
-      <View style={styles.switchRow}>
-        <ThemedText>カスタム単位を使う</ThemedText>
-        <Switch value={!!customUnit} onValueChange={val => setCustomUnit(val ? '' : '')} />
-      </View>
-
-      {customUnit !== undefined && customUnit !== '' && (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="単位名を入力（例：セット、分）"
-            value={customUnit}
-            onChangeText={setCustomUnit}
-          />
-          <ThemedText style={styles.label}>この単位の1あたりのポイント</ThemedText>
-          <TextInput
-            style={styles.input}
-            keyboardType="decimal-pad"
-            inputMode="decimal"
-            placeholder="例：1 2 0.5"
-            value={customPointPerUnit}
-            onChangeText={setCustomPointPerUnit}
-          />
-        </>
       )}
 
       {/* 量 */}

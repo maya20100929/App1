@@ -1,16 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import React, { FC, useState } from 'react';
+import React, { FC, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import {
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type Task = {
@@ -29,6 +30,16 @@ const formatDateTime = (date: Date) => {
   const min = String(date.getMinutes()).padStart(2, '0');
 
   return `${y}/${m}/${d} ${h}:${min}`;
+};
+
+const toDateTimeLocalValue = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+
+  return `${y}-${m}-${d}T${h}:${min}`;
 };
 
 
@@ -50,6 +61,7 @@ const NotificationScreen: FC = () => {
     useState<'new' | 'edit' | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const webInputRef = useRef<HTMLInputElement | null>(null);
 
   /* ===== 追加 ===== */
   const addTask = () => {
@@ -93,6 +105,18 @@ const NotificationScreen: FC = () => {
   };
 
   /* ===== Mobile Picker ===== */
+  const openDatePicker = (target: 'new' | 'edit') => {
+    setPickerTarget(target);
+
+    if (Platform.OS === 'web') {
+      webInputRef.current?.showPicker?.();
+      webInputRef.current?.focus();
+      return;
+    }
+
+    setShowDatePicker(true);
+  };
+
   const onSelectDate = (_: any, date?: Date) => {
     setShowDatePicker(false);
     if (!date) return;
@@ -108,8 +132,28 @@ const NotificationScreen: FC = () => {
     const finalDate = new Date(selectedDate);
     finalDate.setHours(time.getHours(), time.getMinutes(), 0, 0);
 
-    const value = finalDate.toLocaleString();
+    const value = formatDateTime(finalDate);
     pickerTarget === 'new' ? setNewTime(value) : setEditTime(value);
+    setPickerTarget(null);
+  };
+
+  const onWebDateTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    if (!value || !pickerTarget) return;
+
+    const [datePart, timePart] = value.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+
+    const parsedDate = new Date(year, month - 1, day, hour, minute);
+    const formattedValue = formatDateTime(parsedDate);
+
+    if (pickerTarget === 'new') {
+      setNewTime(formattedValue);
+    } else {
+      setEditTime(formattedValue);
+    }
+
     setPickerTarget(null);
   };
 
@@ -150,25 +194,19 @@ const NotificationScreen: FC = () => {
         />
 
         {/* ===== 日時入力 ===== */}
-        {Platform.OS === 'web' ? (
-          <View style={styles.webInputWrapper}>
-            <input
-              type="datetime-local"
-              value={newTime}
-              onChange={e => setNewTime(e.target.value)}
-              style={webInput}
-            />
+        <TouchableOpacity style={styles.dateButton} onPress={() => openDatePicker('new')}>
+          <View style={styles.dateButtonContent}>
+            <Ionicons name="calendar-outline" size={18} color="#aaacf5ff" />
+            <ThemedText style={styles.dateButtonText}>{newTime || '日時を選択'}</ThemedText>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.input}
-            onPress={() => {
-              setPickerTarget('new');
-              setShowDatePicker(true);
-            }}
-          >
-            <ThemedText>{newTime || '日時を選択'}</ThemedText>
-          </TouchableOpacity>
+        </TouchableOpacity>
+        {Platform.OS === 'web' && (
+          <input
+            ref={webInputRef}
+            type="datetime-local"
+            onChange={onWebDateTimeChange}
+            style={styles.webPickerInput}
+          />
         )}
 
         <TouchableOpacity style={styles.addButton} onPress={addTask}>
@@ -187,25 +225,19 @@ const NotificationScreen: FC = () => {
                 onChangeText={setEditText}
               />
 
-              {Platform.OS === 'web' ? (
-                <View style={styles.webInputWrapper}>
-                  <input
-                    type="datetime-local"
-                    value={editTime}
-                    onChange={e => setEditTime(e.target.value)}
-                    style={webInput}
-                  />
+              <TouchableOpacity style={styles.dateButton} onPress={() => openDatePicker('edit')}>
+                <View style={styles.dateButtonContent}>
+                  <Ionicons name="calendar-outline" size={18} color="#aaacf5ff" />
+                  <ThemedText style={styles.dateButtonText}>{editTime || '日時を選択'}</ThemedText>
                 </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => {
-                    setPickerTarget('edit');
-                    setShowDatePicker(true);
-                  }}
-                >
-                  <ThemedText>{editTime || '日時を選択'}</ThemedText>
-                </TouchableOpacity>
+              </TouchableOpacity>
+              {Platform.OS === 'web' && (
+                <input
+                  ref={webInputRef}
+                  type="datetime-local"
+                  onChange={onWebDateTimeChange}
+                  style={styles.webPickerInput}
+                />
               )}
             </>
           ) : (
@@ -285,16 +317,6 @@ const NotificationScreen: FC = () => {
 
 export default NotificationScreen;
 
-/* ===== Web input 中身 ===== */
-const webInput: React.CSSProperties = {
-  width: '100%',
-  border: 'none',
-  outline: 'none',
-  fontSize: 16,
-  fontFamily: Fonts.rounded,
-  backgroundColor: 'transparent',
-};
-
 /* ===== styles ===== */
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 18, backgroundColor: '#fff' },
@@ -302,14 +324,30 @@ const styles = StyleSheet.create({
   addBox: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, backgroundColor: '#fff' },
   input: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 10, borderRadius: 16, marginBottom: 10, backgroundColor: '#fff', fontFamily: Fonts.rounded },
 
-  webInputWrapper: {
+  dateButton: {
     borderWidth: 1,
-    borderColor: '#e9e1ff',
+    borderColor: '#aaacf5ff',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderRadius: 16,
     marginBottom: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
     backgroundColor: '#fff',
+  },
+  dateButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateButtonText: {
+    color: '#aaacf5ff',
+    fontFamily: Fonts.rounded,
+  },
+  webPickerInput: {
+    position: 'absolute',
+    opacity: 0,
+    pointerEvents: 'none',
+    width: 1,
+    height: 1,
   },
 
   addButton: { backgroundColor: '#aaacf5ff', padding: 12, borderRadius: 18, alignItems: 'center' },

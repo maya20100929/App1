@@ -1,11 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
-import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword
-} from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   addDoc,
   collection,
@@ -37,8 +33,6 @@ const HomeScreen: FC = () => {
   };
 
   const [user, setUser] = useState<any | null>(() => auth.currentUser);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -347,8 +341,8 @@ const HomeScreen: FC = () => {
             <TouchableOpacity onPress={() => onSaveEdit(task.id)} style={[styles.addButton, { paddingHorizontal: 12 }]}>
               <ThemedText style={styles.addButtonText}>保存</ThemedText>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onCancelEdit} style={[styles.menuButton, { marginLeft: 8 }]}>
-              <ThemedText style={styles.menuText}>キャンセル</ThemedText>
+            <TouchableOpacity onPress={onCancelEdit} style={styles.cancelEditButton}>
+              <ThemedText style={styles.cancelEditButtonText}>×</ThemedText>
             </TouchableOpacity>
           </ThemedView>
         ) : (
@@ -475,57 +469,6 @@ const HomeScreen: FC = () => {
     return (
       <ThemedView style={styles.mobileContainer}>
         <ScrollView style={styles.mobileContent}>
-        {!user && (
-          <ThemedView style={{ alignItems: 'center', marginBottom: 12 }}>
-            <TextInput
-              style={styles.dateInput}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={styles.dateInput}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              secureTextEntry
-            />
-            <ThemedView style={{ flexDirection: 'row', marginTop: 8 }}>
-              <TouchableOpacity
-                style={[styles.menuButton, { marginRight: 8 }]}
-                onPress={async () => {
-                  console.log('Homescreen: register pressed', { email });
-                  try {
-                    const res = await createUserWithEmailAndPassword(auth, email, password);
-                    console.log('Homescreen: register success', { uid: res.user?.uid });
-                  } catch (e) {
-                    console.warn('register failed', e);
-                    Alert.alert('登録エラー', String(e));
-                  }
-                }}
-              >
-                <ThemedText style={styles.menuText}>登録</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={async () => {
-                  console.log('Homescreen: login pressed', { email });
-                  try {
-                    const res = await signInWithEmailAndPassword(auth, email, password);
-                    console.log('Homescreen: login success', { uid: res.user?.uid });
-                  } catch (e) {
-                    console.warn('login failed', e);
-                    Alert.alert('ログインエラー', String(e));
-                  }
-                }}
-              >
-                <ThemedText style={styles.menuText}>ログイン</ThemedText>
-              </TouchableOpacity>
-            </ThemedView>
-          </ThemedView>
-        )}
         <ThemedView style={{ alignItems: 'center', marginBottom: 20 }}>
           <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
           <ThemedText style={styles.dateDisplay}>
@@ -533,8 +476,8 @@ const HomeScreen: FC = () => {
           </ThemedText>
         </ThemedView>
 
-        {renderPreviousMessages()}
         {renderTasks()}
+        {renderPreviousMessages()}
       </ScrollView>
       </ThemedView>
     );
@@ -636,9 +579,6 @@ const styles = StyleSheet.create({
   },
 
   dateDisplay: {
-    borderWidth: 1,
-    borderColor: '#aaacf5ff',
-    borderRadius: 20,
     paddingVertical: 12,
     paddingHorizontal: 16,
     width: 180,
@@ -670,6 +610,23 @@ const styles = StyleSheet.create({
   },
 
   menuText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+
+  cancelEditButton: {
+    marginLeft: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0ebff',
+  },
+
+  cancelEditButtonText: {
+    color: '#8b7bd8',
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
 
   dateInput: {
     borderWidth: 1,

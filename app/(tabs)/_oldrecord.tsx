@@ -79,6 +79,22 @@ const subjectColors: Record<Subject, string> = {
 export default function OldRecordScreen() {
   const { width } = useWindowDimensions();
   const isPC = width >= 768;
+  const hasRecords = records.length > 0;
+
+  if (!hasRecords) {
+    return (
+      <ScrollView style={styles.container}>
+        <ThemedText style={styles.title}>今までの記録</ThemedText>
+        <View style={styles.emptyState}>
+          <ThemedText style={styles.emptyEmoji}>📭</ThemedText>
+          <ThemedText style={styles.emptyTitle}>まだ記録がありません</ThemedText>
+          <ThemedText style={styles.emptyDescription}>
+            学習を記録すると、ここに統計が表示されます。
+          </ThemedText>
+        </View>
+      </ScrollView>
+    );
+  }
 
   /* =====================
      合計ポイント
@@ -242,6 +258,29 @@ const styles = StyleSheet.create({
     borderColor: '#aaacf5ff',
   },
   totalText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: '#6d3f7f' },
+
+  emptyState: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    marginVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#aaacf5ff',
+  },
+  emptyEmoji: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6d3f7f',
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 
   cardsContainer: {},
   pcLayout: { flexDirection: 'row' },

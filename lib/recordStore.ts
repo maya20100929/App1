@@ -23,6 +23,7 @@ export type StudyRecord = {
   amount: number;
   unit: string;
   point: number;
+  difficulty?: '' | '1' | '2' | '3';
   userId?: string;
 };
 
