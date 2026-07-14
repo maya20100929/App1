@@ -1,17 +1,17 @@
 import { Slot, usePathname, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Animated,
-    Pressable,
-    StyleSheet,
-    TouchableOpacity,
+  Animated,
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
 export default function TabsLayout() {
-  type RoutePath = '/Homescreen' | '/record' | '/oldrecord' | '/testrecord' | '/notification' | '/settingsscreen' | '/login' | '/register';
+  type RoutePath = '/Homescreen' | '/oldrecord' | '/testrecord' | '/notification' | '/settingsscreen' | '/login' | '/register';
   const router = useRouter();
   const pathname = usePathname();
   const currentPath = pathname as RoutePath;
@@ -26,7 +26,7 @@ export default function TabsLayout() {
     }).start();
   }, [menuOpen, slideAnim]);
 
-  const navigate = (path: '/Homescreen' | '/record' | '/oldrecord' | '/testrecord' | '/notification' | '/settingsscreen' | '/login' | '/register') => {
+  const navigate = (path: '/Homescreen' | '/oldrecord' | '/testrecord' | '/notification' | '/settingsscreen' | '/login' | '/register') => {
     setMenuOpen(false);
     router.push(path);
   };
@@ -34,7 +34,6 @@ export default function TabsLayout() {
   const showHomeButton = currentPath !== '/Homescreen';
   const hideHeader = currentPath === '/login' || currentPath === '/register';
   const menuItems: Array<{ label: string; path: RoutePath }> = [
-    { label: '記録', path: '/record' },
     { label: '今までの記録', path: '/oldrecord' },
     { label: 'テスト', path: '/testrecord' },
     { label: '通知', path: '/notification' },

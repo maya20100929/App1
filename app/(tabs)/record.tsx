@@ -81,20 +81,35 @@ export default function RecordScreen() {
   // ユーザー設定の単位とポイント
   const [unitOptions, setUnitOptions] = useState<{ unit: string; pointPerUnit: number }[]>([]);
 
-  const rule = useMemo(
-    () => subjectRules.find(r => r.subject === subject),
-    [subject]
-  );
+  const difficultyMultiplier = useMemo(() => {
+    switch (difficulty) {
+      case '1':
+        return 1.2;
+      case '2':
+        return 1.5;
+      case '3':
+        return 1.8;
+      default:
+        return 1;
+    }
+  }, [difficulty]);
 
-  // 科目変更時にカスタム教材とユニットルールを読み込む
-  useFocusEffect(
-    useCallback(() => {
-      loadMaterials();
-      loadUnitRules();
-    }, [subject])
-  );
+  const actualMaterial = material === '__custom__' ? customMaterial : material;
+  const actualUnit = selectedUnit;
 
-  const loadMaterials = async () => {
+  const materialRate = useMemo(() => {
+    if (!actualMaterial) return 1;
+
+    if (material === '__custom__') {
+      const parsed = Number(customPointRate);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    }
+
+    const matchedMaterial = allMaterials.find(item => item.name === actualMaterial);
+    return Number(matchedMaterial?.rate ?? 1);
+  }, [actualMaterial, allMaterials, customPointRate, material]);
+
+  const loadMaterials = useCallback(async () => {
     try {
       // 定義済み教材
       const baseMaterials = Object.entries(pointRules[subject]).map(([name, rate]) => ({
@@ -118,9 +133,9 @@ export default function RecordScreen() {
     } catch (error) {
       console.error('Failed to load materials:', error);
     }
-  };
+  }, [subject]);
 
-  const loadUnitRules = async () => {
+  const loadUnitRules = useCallback(async () => {
     try {
       const rules = await getUnitPointRulesBySubject(subject);
       setUnitOptions(rules.map(r => ({ unit: r.unit, pointPerUnit: r.pointPerUnit })));
@@ -131,31 +146,37 @@ export default function RecordScreen() {
     } catch (error) {
       console.error('Failed to load unit rules:', error);
     }
-  };
+  }, [subject]);
 
-  /* =====================
-     実際に使う教材名
-  ===================== */
-  const actualMaterial =
-    material === '__custom__' ? customMaterial : material;
-
-  /* =====================
-     実際に使う単位
-  ===================== */
-  const actualUnit = selectedUnit;
+  // 科目変更時にカスタム教材とユニットルールを読み込む
+  useFocusEffect(
+    useCallback(() => {
+      loadMaterials();
+      loadUnitRules();
+    }, [loadMaterials, loadUnitRules])
+  );
 
   /* =====================
      ポイント計算（単位ベース）
   ===================== */
-  const point = useMemo(() => {
+  const selectedUnitRule = useMemo(() => {
+    if (!actualUnit) return null;
+    return unitOptions.find(u => u.unit === actualUnit) ?? null;
+  }, [actualUnit, unitOptions]);
+
+  const basePoint = useMemo(() => {
     const num = Number(amount);
-    if (!num || !actualUnit) return 0;
+    if (!Number.isFinite(num) || !num || !actualUnit || !selectedUnitRule) return 0;
 
-    const unitRule = unitOptions.find(u => u.unit === actualUnit);
-    if (!unitRule) return 0;
+    return Math.floor(num * Number(selectedUnitRule.pointPerUnit));
+  }, [amount, actualUnit, selectedUnitRule]);
 
-    return Math.floor(num * unitRule.pointPerUnit);
-  }, [amount, actualUnit, unitOptions]);
+  const point = useMemo(() => {
+    if (!basePoint) return 0;
+
+    const computedPoint = basePoint * Number(materialRate) * Number(difficultyMultiplier);
+    return Math.floor(computedPoint);
+  }, [basePoint, materialRate, difficultyMultiplier]);
 
   /* =====================
      保存
@@ -164,8 +185,8 @@ export default function RecordScreen() {
     console.log('=== handleSave called ===');
     console.log('Validation:', { actualMaterial, content, amount, actualUnit });
     
-    if (!actualMaterial || !content || !amount || !actualUnit) {
-      Alert.alert('入力不足', 'すべて入力してください');
+    if (!content || !amount || !actualUnit) {
+      Alert.alert('入力不足', '内容・量・単位を入力してください');
       return;
     }
 
@@ -200,7 +221,9 @@ export default function RecordScreen() {
         }
       }
 
-      const difficultyLabel = difficulty ? '★'.repeat(Number(difficulty)) : '未選択';
+      const difficultyLabel = difficulty
+        ? `${'★'.repeat(Number(difficulty))}（${difficultyMultiplier.toFixed(1)}倍）`
+        : '未選択（1.0倍）';
 
       Alert.alert(
         '保存しました',
@@ -235,7 +258,7 @@ export default function RecordScreen() {
       console.error('Save error:', error);
       Alert.alert('エラー', '保存に失敗しました');
     }
-  }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, point, customMaterial, difficulty]);
+  }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, point, customMaterial, difficulty, difficultyMultiplier]);
 
   return (
     <ScrollView style={styles.container}>
@@ -296,10 +319,10 @@ export default function RecordScreen() {
       <ThemedText style={styles.label}>難易度</ThemedText>
       <View style={styles.pickerWrapper}>
         <Picker selectedValue={difficulty} onValueChange={value => setDifficulty(value as Difficulty)}>
-          <Picker.Item label="選択しない" value="" />
-          <Picker.Item label="★" value="1" />
-          <Picker.Item label="★★" value="2" />
-          <Picker.Item label="★★★" value="3" />
+          <Picker.Item label="選択しない（1.0倍）" value="" />
+          <Picker.Item label="★（1.2倍）" value="1" />
+          <Picker.Item label="★★（1.5倍）" value="2" />
+          <Picker.Item label="★★★（1.8倍）" value="3" />
         </Picker>
       </View>
 
@@ -332,6 +355,9 @@ export default function RecordScreen() {
       {/* ポイント */}
       <View style={styles.pointBox}>
         <ThemedText style={styles.pointText}>今回のポイント：{point} pt</ThemedText>
+        <ThemedText style={styles.pointHintText}>
+          計算：{amount || 0}{actualUnit || '単位'} × {selectedUnitRule?.pointPerUnit ?? 0}pt × {difficultyMultiplier.toFixed(1)}倍 = {point}pt
+        </ThemedText>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleSave}>
@@ -401,6 +427,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#6e3c7a',
+  },
+  pointHintText: {
+    fontSize: 13,
+    marginTop: 6,
+    textAlign: 'center',
+    color: '#7a4b78',
   },
   button: {
     backgroundColor: '#aaacf5ff',

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router } from 'expo-router';
 import React, { FC, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
@@ -189,6 +188,7 @@ const NotificationScreen: FC = () => {
         <TextInput
           style={styles.input}
           placeholder="やること"
+          placeholderTextColor="#a8a8a8"
           value={newText}
           onChangeText={setNewText}
         />
@@ -221,6 +221,8 @@ const NotificationScreen: FC = () => {
             <>
               <TextInput
                 style={styles.input}
+                placeholder="やること"
+                placeholderTextColor="#a8a8a8"
                 value={editText}
                 onChangeText={setEditText}
               />
@@ -283,7 +285,7 @@ const NotificationScreen: FC = () => {
         </View>
       ))}
 
-      <ThemedText style={styles.title}>履歴</ThemedText>
+      <ThemedText style={[styles.title, styles.historyTitle]}>履歴</ThemedText>
 
       {historyTasks.map(task => (
         <View key={task.id} style={styles.historyCard}>
@@ -291,10 +293,6 @@ const NotificationScreen: FC = () => {
           <ThemedText style={styles.timeText}>完了：{task.completedAt}</ThemedText>
         </View>
       ))}
-
-      <TouchableOpacity onPress={() => router.back()}>
-        <ThemedText style={styles.back}>戻る</ThemedText>
-      </TouchableOpacity>
 
       {showDatePicker && (
         <DateTimePicker
@@ -321,8 +319,18 @@ export default NotificationScreen;
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 18, backgroundColor: '#fff' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 12, color: '#aaacf5ff' },
+  historyTitle: { marginTop: 20, marginBottom: 12 },
   addBox: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 14, borderRadius: 18, backgroundColor: '#fff' },
-  input: { borderWidth: 1, borderColor: '#aaacf5ff', padding: 10, borderRadius: 16, marginBottom: 10, backgroundColor: '#fff', fontFamily: Fonts.rounded },
+  input: {
+    borderWidth: 1,
+    borderColor: 'rgb(236, 237, 255)',
+    padding: 10,
+    borderRadius: 16,
+    marginBottom: 10,
+    backgroundColor: '#f4f1fa',
+    fontFamily: Fonts.rounded,
+    color: '#aaaf5ff',
+  },
 
   dateButton: {
     borderWidth: 1,
