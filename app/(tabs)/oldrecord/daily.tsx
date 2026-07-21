@@ -4,6 +4,12 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { getRecordsByDate, StudyRecord } from '../../../lib/recordStore';
 
+const formatDuration = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return hours > 0 ? `${hours}時間${remainingMinutes}分` : `${remainingMinutes}分`;
+};
+
 export default function DailyDetailScreen() {
   const params = useLocalSearchParams();
   const dateParam = params.date as string;
@@ -39,6 +45,11 @@ export default function DailyDetailScreen() {
     [records]
   );
 
+  const totalDurationMinutes = useMemo(
+    () => records.reduce((sum, r) => sum + (Number(r.durationMinutes) || 0), 0),
+    [records]
+  );
+
   const subjectBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
     records.forEach(r => {
@@ -62,6 +73,7 @@ export default function DailyDetailScreen() {
 
       <View style={styles.box}>
         <ThemedText style={styles.boxTitle}>合計：{totalPoint} pt</ThemedText>
+        <ThemedText style={styles.durationTotal}>この日の学習時間：{formatDuration(totalDurationMinutes)}</ThemedText>
         {subjectBreakdown.map(([subject, point]) => (
           <ThemedText key={subject} style={styles.boxItem}>
             {subject}：{point} pt
@@ -79,6 +91,11 @@ export default function DailyDetailScreen() {
               {record.amount} {record.unit}
             </ThemedText>
             <ThemedText style={styles.recordPoint}>{record.point} pt</ThemedText>
+            {record.durationMinutes !== undefined && (
+              <ThemedText style={styles.recordDuration}>
+                かかった時間：{formatDuration(Number(record.durationMinutes) || 0)}
+              </ThemedText>
+            )}
           </View>
         ))}
       </View>
@@ -100,6 +117,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   boxTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+  durationTotal: { fontSize: 14, fontWeight: '600', color: '#554a8e', marginBottom: 6 },
   boxItem: { fontSize: 14, marginVertical: 4 },
   detailsBox: {
     borderWidth: 1,
@@ -122,4 +140,5 @@ const styles = StyleSheet.create({
   recordContent: { fontSize: 13, marginTop: 2 },
   recordAmount: { fontSize: 12, color: '#888', marginTop: 2 },
   recordPoint: { fontSize: 12, fontWeight: 'bold', marginTop: 2 },
+  recordDuration: { fontSize: 12, color: '#625c80', marginTop: 2 },
 });

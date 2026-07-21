@@ -59,6 +59,12 @@ const subjectColors: Record<Subject, string> = {
   社会: '#03A9F4',
 };
 
+const formatDuration = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return hours > 0 ? `${hours}時間${remainingMinutes}分` : `${remainingMinutes}分`;
+};
+
 export default function OldRecordScreen() {
   const { width } = useWindowDimensions();
   const isPC = width >= 768;
@@ -136,6 +142,32 @@ export default function OldRecordScreen() {
     () => records.reduce((sum, r) => sum + r.point, 0),
     [records]
   );
+
+  const totalDurationMinutes = useMemo(
+    () => records.reduce((sum, r) => sum + (Number(r.durationMinutes) || 0), 0),
+    [records]
+  );
+
+  const dailyDurations = useMemo(() => {
+    const map: Record<string, number> = {};
+    records.forEach(record => {
+      map[record.date] = (map[record.date] || 0) + (Number(record.durationMinutes) || 0);
+    });
+    return Object.entries(map)
+      .map(([date, minutes]) => ({ date, minutes }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [records]);
+
+  const monthlyDurations = useMemo(() => {
+    const map: Record<string, number> = {};
+    records.forEach(record => {
+      const month = record.date.slice(0, 7);
+      map[month] = (map[month] || 0) + (Number(record.durationMinutes) || 0);
+    });
+    return Object.entries(map)
+      .map(([month, minutes]) => ({ month, minutes }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [records]);
 
   const dailyPoints = useMemo(() => {
     const map: Record<string, number> = {};
@@ -292,6 +324,54 @@ export default function OldRecordScreen() {
               ))}
             </TouchableOpacity>
           </View>
+
+          <View style={styles.totalDurationBox}>
+            <ThemedText style={styles.totalDurationLabel}>累計学習時間</ThemedText>
+            <ThemedText style={styles.totalDurationText}>
+              {formatDuration(totalDurationMinutes)}
+            </ThemedText>
+          </View>
+
+          <View style={styles.timeBreakdownBox}>
+            <ThemedText style={styles.timeBreakdownTitle}>1日ごとの学習時間（推移）</ThemedText>
+            {(() => {
+              const trendData = [...dailyDurations].reverse();
+              const maxMinutes = Math.max(...trendData.map(item => item.minutes), 1);
+              const xStep = 240 / Math.max(trendData.length - 1, 1);
+
+              return (
+                <>
+                  <Svg width={280} height={130}>
+                    <Polyline
+                      points={trendData
+                        .map((item, index) => `${20 + index * xStep},${105 - (item.minutes / maxMinutes) * 80}`)
+                        .join(' ')}
+                      fill="none"
+                      stroke="#8d87c8"
+                      strokeWidth="3"
+                    />
+                    <Line x1="20" y1="105" x2="260" y2="105" stroke="#d9d3ed" />
+                  </Svg>
+                  {trendData.length > 0 && (
+                    <View style={styles.timeTrendCaption}>
+                      <ThemedText style={styles.timeTrendDate}>{trendData[0].date}</ThemedText>
+                      <ThemedText style={styles.timeTrendDate}>{trendData[trendData.length - 1].date}</ThemedText>
+                    </View>
+                  )}
+                </>
+              );
+            })()}
+          </View>
+
+          <View style={styles.timeBreakdownBox}>
+            <ThemedText style={styles.timeBreakdownTitle}>月ごとの学習時間</ThemedText>
+            {monthlyDurations.map(({ month, minutes }) => (
+              <View key={month} style={styles.timeBreakdownRow}>
+                <ThemedText style={styles.timeBreakdownDate}>{month}</ThemedText>
+                <ThemedText style={styles.timeBreakdownValue}>{formatDuration(minutes)}</ThemedText>
+              </View>
+            ))}
+          </View>
         </>
       )}
     </ScrollView>
@@ -328,4 +408,39 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+
+  totalDurationBox: {
+    marginTop: 24,
+    marginBottom: 28,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e9e1ff',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  totalDurationLabel: { fontSize: 15, color: '#625c80' },
+  totalDurationText: { fontSize: 24, fontWeight: 'bold', color: '#554a8e', marginTop: 6 },
+
+  timeBreakdownBox: {
+    marginBottom: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e9e1ff',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  timeBreakdownTitle: { fontSize: 17, fontWeight: 'bold', color: '#554a8e', marginBottom: 8 },
+  timeTrendCaption: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 },
+  timeTrendDate: { fontSize: 12, color: '#625c80' },
+  timeBreakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0ecff',
+  },
+  timeBreakdownDate: { fontSize: 15, color: '#45405f' },
+  timeBreakdownValue: { fontSize: 15, fontWeight: 'bold', color: '#554a8e' },
 });

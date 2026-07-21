@@ -1,10 +1,14 @@
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -36,6 +40,7 @@ export default function TestOverviewScreen() {
 
   /* ===== テスト日付 ===== */
   const [testDateText, setTestDateText] = useState('2025-12-10');
+  const [isCalendarVisible, setIsCalendarVisible] = useState(false);
   const [goalText, setGoalText] = useState('');
   const [user, setUser] = useState<any | null>(null);
 
@@ -75,6 +80,29 @@ export default function TestOverviewScreen() {
   }, [user]);
 
   const isValidYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const selectedDateForPicker = useMemo(() => {
+    const parsed = new Date(testDateText);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  }, [testDateText]);
+
+  const openCalendar = () => {
+    setIsDateFocused(true);
+    setIsCalendarVisible(true);
+  };
+
+  const closeCalendarAndSave = () => {
+    setIsCalendarVisible(false);
+    setIsDateFocused(false);
+    saveTestInfo({ silent: true });
+  };
 
   const saveTestInfo = async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -243,17 +271,15 @@ export default function TestOverviewScreen() {
           <ThemedText style={styles.testTitle}>次のテスト</ThemedText>
 
           <View style={styles.dateRow}>
-            <TextInput
+            <TouchableOpacity
               style={[styles.dateInput, isDateFocused && styles.dateInputActive]}
-              value={testDateText}
-              onChangeText={setTestDateText}
-              placeholder="YYYY-MM-DD"
-              onFocus={() => setIsDateFocused(true)}
-              onBlur={() => {
-                setIsDateFocused(false);
-                saveTestInfo({ silent: true });
-              }}
-            />
+              activeOpacity={0.8}
+              onPress={openCalendar}
+            >
+              <ThemedText style={[styles.dateInputText, !testDateText && styles.dateInputPlaceholder]}>
+                {testDateText || '日付を選択'}
+              </ThemedText>
+            </TouchableOpacity>
             {daysLeft !== null && (
               <ThemedText style={styles.daysLeft}>
                 残り <ThemedText style={styles.daysLeftNumber}>{daysLeft}</ThemedText> 日
@@ -287,6 +313,28 @@ export default function TestOverviewScreen() {
           </View>
         </View>
       </View>
+
+      <Modal
+        visible={isCalendarVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCalendarAndSave}
+      >
+        <Pressable style={styles.calendarOverlay} onPress={closeCalendarAndSave}>
+          <Pressable style={styles.calendarPanel} onPress={event => event.stopPropagation()}>
+            <DateTimePicker
+              value={selectedDateForPicker}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
+              onChange={(_, selectedDate) => {
+                if (selectedDate) {
+                  setTestDateText(formatDate(selectedDate));
+                }
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.divider} />
 
@@ -461,6 +509,18 @@ const styles = StyleSheet.create({
     width: 160,
     fontFamily: Fonts.rounded,
   },
+
+  dateInputText: {
+  fontFamily: Fonts.rounded,
+  fontSize: 16,
+  color: '#4A1D4D',
+  textAlign: 'center',
+},
+
+dateInputPlaceholder: {
+  color: '#9ca3af',
+},
+
 
   dateInputActive: {
     borderColor: '#8a3a82',
@@ -688,4 +748,23 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     fontFamily: Fonts.rounded,
   },
+
+  calendarOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.25)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+calendarPanel: {
+  backgroundColor: '#fff',
+  borderRadius: 20,
+  padding: 12,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 8,
+  elevation: 5,
+},
+
 });

@@ -34,6 +34,12 @@ const HomeScreen: FC = () => {
     done: boolean;
     date: string;
     archived?: boolean;
+    subject?: Subject;
+    material?: string;
+    amount?: number;
+    unit?: string;
+    difficulty?: Difficulty;
+    durationMinutes?: number;
   };
 
   type Difficulty = '' | '1' | '2' | '3';
@@ -49,7 +55,6 @@ const HomeScreen: FC = () => {
   const pointRules = {
     数学: {
       青チャート: 1,
-      フォーカスゴールド: 1.2,
     },
     英語: {
       単語帳: 0.2,
@@ -74,18 +79,17 @@ const HomeScreen: FC = () => {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isRecordModalVisible, setIsRecordModalVisible] = useState(false);
   const [recordModalTab, setRecordModalTab] = useState<'todo' | 'record'>('todo');
+  const [recordingTaskId, setRecordingTaskId] = useState<string | null>(null);
   const [modalTaskText, setModalTaskText] = useState('');
   const newTaskInputRef = React.useRef<TextInput | null>(null);
-  const [previousMessages, setPreviousMessages] = useState([
-    { id: 'message-1', text: 'あいうえお', done: false },
-    { id: 'message-2', text: 'かきくけこ', done: false },
-  ]);
+  const [previousMessages, setPreviousMessages] = useState<Task[]>([]);
   const [subject, setSubject] = useState<Subject>('数学');
   const [material, setMaterial] = useState('');
   const [customMaterial, setCustomMaterial] = useState('');
   const [customPointRate, setCustomPointRate] = useState('1');
   const [content, setContent] = useState('');
   const [amount, setAmount] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('');
   const [selectedUnit, setSelectedUnit] = useState('');
   const [allMaterials, setAllMaterials] = useState<{ name: string; rate: number }[]>([]);
@@ -300,6 +304,28 @@ console.log(
     })();
   };
 
+  const deleteTask = (id: string) => {
+    (async () => {
+      if (!user) {
+        const allTasks = [...todayTasks, ...pastTasks, ...archivedTasks];
+        const target = allTasks.find(task => task.id === id);
+        if (!target) return;
+
+        setTodayTasks(prev => prev.filter(task => task.id !== id));
+        setPastTasks(prev => prev.filter(task => task.id !== id));
+        setArchivedTasks(prev => [...prev.filter(task => task.id !== id), { ...target, archived: true }]);
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, 'users', user.uid, 'tasks', id), { archived: true });
+      } catch (error) {
+        console.warn('deleteTask failed', error);
+        Alert.alert('エラー', 'タスクの削除に失敗しました。');
+      }
+    })();
+  };
+
   const saveEdit = (id: string) => {
     (async () => {
       const text = editingText.trim();
@@ -379,8 +405,12 @@ console.log(
   const handleModalAddTask = async () => {
     console.log('Homescreen: modal add task pressed', { modalTaskText, userPresent: !!user });
     const text = modalTaskText.trim();
-    if (!text) {
-      Alert.alert('入力してください', 'タスク内容を入力してください。');
+    const actualMaterial = material === '__custom__' ? customMaterial.trim() : material;
+    const numericAmount = Number(amount);
+    const hasAmount = Number.isFinite(numericAmount) && numericAmount > 0 && !!selectedUnit;
+
+    if (!text || !actualMaterial) {
+      Alert.alert('入力不足', '教材と目標を入力してください。');
       return;
     }
 
@@ -391,11 +421,21 @@ console.log(
       done: false,
       date: dateStr,
       archived: false,
+      subject,
+      material: actualMaterial,
+      ...(hasAmount ? { amount: numericAmount, unit: selectedUnit } : {}),
+      ...(hasAmount && difficulty ? { difficulty } : {}),
     };
 
     if (!user) {
       setTodayTasks(prev => [...prev, newTask]);
       setModalTaskText('');
+      setMaterial('');
+      setCustomMaterial('');
+      setCustomPointRate('1');
+      setAmount('');
+      setDifficulty('');
+      setIsRecordModalVisible(false);
       console.log('Homescreen: saved modal task locally');
       return;
     }
@@ -403,14 +443,23 @@ console.log(
     const tasksRef = collection(db, 'users', user.uid, 'tasks');
     try {
       console.log('Homescreen: adding modal task', text);
-      const docRef = await addDoc(tasksRef, {
+      await addDoc(tasksRef, {
         text,
         done: false,
         date: dateStr,
         archived: false,
+        subject,
+        material: actualMaterial,
+        ...(hasAmount ? { amount: numericAmount, unit: selectedUnit } : {}),
+        ...(hasAmount && difficulty ? { difficulty } : {}),
         createdAt: Date.now(),
       });
       setModalTaskText('');
+      setMaterial('');
+      setCustomMaterial('');
+      setCustomPointRate('1');
+      setAmount('');
+      setDifficulty('');
       setIsRecordModalVisible(false);
       console.log('Homescreen: modal add task succeeded');
     } catch (e: unknown) {
@@ -439,12 +488,109 @@ console.log(
     const difficultyMultiplier = difficulty === '1' ? 1.2 : difficulty === '2' ? 1.5 : difficulty === '3' ? 1.8 : 1;
     return Math.floor(basePoint * materialRate * difficultyMultiplier);
   }, [basePoint, material, customPointRate, allMaterials, difficulty]);
+  const shouldShowSelectedMaterial =
+    !!material && material !== '__custom__' && !allMaterials.some(item => item.name === material);
+
+  const completeTaskAfterRecord = useCallback(async (
+    id: string,
+    record: {
+      subject: Subject;
+      material: string;
+      content: string;
+      amount: number;
+      unit: string;
+      durationMinutes?: number;
+      difficulty?: Difficulty;
+    }
+  ) => {
+    const taskUpdate = {
+      done: true,
+      text: record.content || `${record.material} ${record.amount}${record.unit}`,
+      subject: record.subject,
+      material: record.material,
+      amount: record.amount,
+      unit: record.unit,
+      ...(record.durationMinutes ? { durationMinutes: record.durationMinutes } : {}),
+      ...(record.difficulty ? { difficulty: record.difficulty } : {}),
+    };
+    const isStoredTask =
+      todayTasks.some(task => task.id === id) ||
+      pastTasks.some(task => task.id === id) ||
+      archivedTasks.some(task => task.id === id);
+
+    if (!isStoredTask) {
+      setPreviousMessages(prev => prev.map(task => task.id === id ? { ...task, ...taskUpdate } : task));
+      return;
+    }
+
+    if (!user) {
+      setTodayTasks(prev => prev.map(task => task.id === id ? { ...task, ...taskUpdate } : task));
+      setPastTasks(prev => prev.map(task => task.id === id ? { ...task, ...taskUpdate } : task));
+      setArchivedTasks(prev => prev.map(task => task.id === id ? { ...task, ...taskUpdate } : task));
+      return;
+    }
+
+    await updateDoc(doc(db, 'users', user.uid, 'tasks', id), taskUpdate);
+  }, [archivedTasks, pastTasks, todayTasks, user]);
+
+  const addCompletedTaskFromRecord = useCallback(async (
+    record: {
+      subject: Subject;
+      material: string;
+      content: string;
+      amount: number;
+      unit: string;
+      durationMinutes?: number;
+      difficulty?: Difficulty;
+    }
+  ) => {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const text = record.content || `${record.material} ${record.amount}${record.unit}`;
+    const newTask = {
+      id: `local-record-${Date.now()}`,
+      text,
+      done: true,
+      date: dateStr,
+      archived: false,
+      subject: record.subject,
+      material: record.material,
+      amount: record.amount,
+      unit: record.unit,
+      ...(record.durationMinutes ? { durationMinutes: record.durationMinutes } : {}),
+      ...(record.difficulty ? { difficulty: record.difficulty } : {}),
+    };
+
+    if (!user) {
+      setTodayTasks(prev => [...prev, newTask]);
+      return;
+    }
+
+    await addDoc(collection(db, 'users', user.uid, 'tasks'), {
+      text,
+      done: true,
+      date: dateStr,
+      archived: false,
+      subject: record.subject,
+      material: record.material,
+      amount: record.amount,
+      unit: record.unit,
+      ...(record.durationMinutes ? { durationMinutes: record.durationMinutes } : {}),
+      ...(record.difficulty ? { difficulty: record.difficulty } : {}),
+      createdAt: Date.now(),
+    });
+  }, [user]);
 
   const handleRecordSave = useCallback(async () => {
     console.log("handleRecordSave");
-    const actualMaterial = material === '__custom__' ? customMaterial : material;
-    if (!actualMaterial || !content || !amount || !selectedUnit) {
-      Alert.alert('入力不足', '教材・内容・量・単位を入力してください');
+    const actualMaterial = material === '__custom__' ? customMaterial.trim() : material;
+    const numericAmount = Number(amount);
+    const duration = Number(durationMinutes);
+    if (!subject || !actualMaterial || !amount || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      Alert.alert('入力不足', '科目・教材・量を入力してください');
+      return;
+    }
+    if (durationMinutes && (!Number.isFinite(duration) || duration <= 0)) {
+      Alert.alert('入力内容を確認してください', 'かかった時間は1分以上の数字で入力してください。');
       return;
     }
 
@@ -453,10 +599,11 @@ console.log(
         date: new Date().toISOString().slice(0, 10),
         subject,
         material: actualMaterial,
-        content,
-        amount: Number(amount),
+        content: content.trim(),
+        amount: numericAmount,
         unit: selectedUnit,
         point,
+        ...(durationMinutes ? { durationMinutes: duration } : {}),
         ...(difficulty ? { difficulty } : {}),
       };
 
@@ -467,6 +614,12 @@ console.log(
         await saveCustomMaterial(subject, customMaterial, Number(customPointRate));
       }
 
+      if (recordingTaskId) {
+        await completeTaskAfterRecord(recordingTaskId, record);
+      } else {
+        await addCompletedTaskFromRecord(record);
+      }
+
       Alert.alert('保存しました', `${subject} / ${actualMaterial}\n${amount}${selectedUnit} → ${point} pt`);
 
       setMaterial('');
@@ -474,24 +627,46 @@ console.log(
       setCustomPointRate('1');
       setContent('');
       setAmount('');
+      setDurationMinutes('');
       setDifficulty('');
       setSelectedUnit(unitOptions[0]?.unit ?? '');
+      setRecordingTaskId(null);
       await loadMaterials();
       setIsRecordModalVisible(false);
     } catch (error) {
       console.error('Homescreen handleRecordSave failed', error);
       Alert.alert('エラー', '記録の保存に失敗しました。');
     }
-  }, [subject, material, customMaterial, customPointRate, content, amount, selectedUnit, point, difficulty, unitOptions, loadMaterials]);
+  }, [subject, material, customMaterial, customPointRate, content, amount, durationMinutes, selectedUnit, point, difficulty, recordingTaskId, completeTaskAfterRecord, addCompletedTaskFromRecord, unitOptions, loadMaterials]);
+
+  const openRecordFromTask = useCallback((task: Task) => {
+    if (task.subject) {
+      setSubject(task.subject);
+    }
+    setRecordingTaskId(task.id);
+    setRecordModalTab('record');
+    setMaterial(task.material ?? '');
+    setCustomMaterial('');
+    setCustomPointRate('1');
+    setContent(task.text);
+    setAmount(task.amount ? String(task.amount) : '');
+    setSelectedUnit(task.unit ?? '');
+    setDifficulty(task.difficulty ?? '');
+    setDurationMinutes(task.durationMinutes ? String(task.durationMinutes) : '');
+    setIsRecordModalVisible(true);
+  }, []);
   const { width } = useWindowDimensions();
   const isPC = width > 600;
   const isMobile = !isPC;
 
   type TaskRowProps = {
     task: Task;
+    isLeftover?: boolean;
     editingTaskId: string | null;
     editingText: string;
     onToggle: (id: string) => void;
+    onDelete: (id: string) => void;
+    onOpenRecord: (task: Task) => void;
     onSaveEdit: (id: string) => void;
     onCancelEdit: () => void;
     onStartEdit: (task: Task) => void;
@@ -500,9 +675,12 @@ console.log(
 
   const TaskRow: FC<TaskRowProps> = ({
     task,
+    isLeftover = false,
     editingTaskId,
     editingText,
     onToggle,
+    onDelete,
+    onOpenRecord,
     onSaveEdit,
     onCancelEdit,
     onStartEdit,
@@ -511,6 +689,10 @@ console.log(
     const translateY = React.useRef(new Animated.Value(12)).current;
     const opacity = React.useRef(new Animated.Value(0)).current;
     const shouldAnimate = task.done;
+    const taskTitle = task.material || task.text;
+    const taskAmount = task.amount ? `${task.amount}${task.unit ?? ''}` : '';
+    const difficultyLabel = task.difficulty === '2' ? '★★' : task.difficulty === '3' ? '★★★' : '';
+    const taskDuration = task.durationMinutes ? `時間：${task.durationMinutes}分` : '';
 
     useEffect(() => {
       if (!shouldAnimate) {
@@ -535,28 +717,73 @@ console.log(
 
   const rowContent = (
     <ThemedView style={[styles.taskCard, task.done && styles.taskCardDone]}>
-      <ThemedView style={styles.taskDetails}>
-        <ThemedView style={[styles.taskStatusBadge, task.done && styles.taskStatusBadgeDone]}>
-          <ThemedText style={[styles.taskStatusText, task.done && styles.taskStatusTextDone]}>
-            {task.done ? '完了' : '今日のタスク'}
-          </ThemedText>
-        </ThemedView>
-        <ThemedText numberOfLines={2} style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
-          {task.text}
-        </ThemedText>
-        <ThemedText style={styles.taskHint}>
-          {task.done ? 'おつかれさまでした！' : '終わったらチェックをつけよう'}
-        </ThemedText>
-      </ThemedView>
       <TouchableOpacity
         accessibilityLabel={task.done ? 'タスクを未完了に戻す' : 'タスクを完了にする'}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.done }}
-        onPress={() => onToggle(task.id)}
-        style={[styles.completeButton, task.done && styles.completeButtonDone]}
+        onPress={() => task.done ? onToggle(task.id) : onOpenRecord(task)}
+        style={[styles.taskCheckButton, task.done && styles.taskCheckButtonDone]}
       >
-        {task.done && <ThemedText style={styles.completeButtonMark}>✓</ThemedText>}
+        {task.done && <ThemedText style={styles.taskCheckMark}>✓</ThemedText>}
       </TouchableOpacity>
+      {task.done ? (
+        <TouchableOpacity
+          accessibilityLabel="このタスクの記録を確認する"
+          accessibilityRole="button"
+          activeOpacity={0.82}
+          onPress={() => onOpenRecord(task)}
+          style={styles.taskDetails}
+        >
+          <ThemedView style={[styles.taskStatusBadge, styles.taskStatusBadgeDone]}>
+            <ThemedText style={[styles.taskStatusText, styles.taskStatusTextDone]}>
+              {task.subject || (isLeftover ? 'やり残し' : '今日のタスク')}
+            </ThemedText>
+            {isLeftover && task.subject && (
+              <ThemedText style={styles.taskLeftoverLabel}>やり残し</ThemedText>
+            )}
+          </ThemedView>
+          <ThemedText numberOfLines={2} style={[styles.taskTitle, styles.taskTitleDone]}>
+            {taskTitle}
+          </ThemedText>
+          {taskAmount && (
+            <ThemedText numberOfLines={1} style={styles.taskHint}>
+              終了：{taskAmount}
+            </ThemedText>
+          )}
+          {(taskDuration || difficultyLabel) && (
+            <ThemedText style={styles.taskDetailText}>
+              {taskDuration}{taskDuration && difficultyLabel ? '　' : ''}{difficultyLabel}
+            </ThemedText>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <ThemedView style={styles.taskDetails}>
+        <ThemedView style={[styles.taskStatusBadge, task.done && styles.taskStatusBadgeDone]}>
+          <ThemedText style={[styles.taskStatusText, task.done && styles.taskStatusTextDone]}>
+            {task.subject || (isLeftover ? 'やり残し' : '今日のタスク')}
+          </ThemedText>
+          {isLeftover && task.subject && (
+            <ThemedText style={styles.taskLeftoverLabel}>やり残し</ThemedText>
+          )}
+        </ThemedView>
+        <ThemedText numberOfLines={2} style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
+          {taskTitle}
+        </ThemedText>
+        <ThemedText numberOfLines={1} style={styles.taskHint}>
+          {task.material ? `目標：${task.text}` : '終わったらチェックをつけよう'}
+        </ThemedText>
+        </ThemedView>
+      )}
+      {!task.done && (
+        <TouchableOpacity
+          accessibilityLabel="タスクを削除する"
+          accessibilityRole="button"
+          onPress={() => onDelete(task.id)}
+          style={styles.deleteTaskButton}
+        >
+          <ThemedText style={styles.deleteTaskButtonText}>🗑</ThemedText>
+        </TouchableOpacity>
+      )}
     </ThemedView>
   );
 
@@ -584,7 +811,13 @@ console.log(
     <ThemedView style={[styles.section, styles.box]}>
       <ThemedView style={styles.todayHeader}>
         <ThemedText style={styles.sectionTitle}>今日やること</ThemedText>
-        <TouchableOpacity style={styles.penButton} onPress={() => setIsRecordModalVisible(true)}>
+        <TouchableOpacity
+          style={styles.penButton}
+          onPress={() => {
+            setRecordingTaskId(null);
+            setIsRecordModalVisible(true);
+          }}
+        >
           <ThemedText style={styles.penButtonText}>✎</ThemedText>
         </TouchableOpacity>
       </ThemedView>
@@ -611,33 +844,102 @@ console.log(
         </TouchableOpacity>
       </ThemedView>
 
-      {previousMessages.length > 0 && (
-        <ThemedView style={styles.leftoverCard}>
-          <ThemedView style={styles.leftoverHeader}>
-            <ThemedText style={styles.leftoverLabel}>やり残し</ThemedText>
-          </ThemedView>
-          {previousMessages.map(item => (
-            <ThemedView key={item.id} style={styles.leftoverRow}>
-              <TouchableOpacity onPress={() => togglePreviousMessage(item.id)} style={styles.checkButton}>
-                <ThemedText style={styles.checkButtonText}>{item.done ? '☑' : '☐'}</ThemedText>
-              </TouchableOpacity>
-              <ThemedText style={[styles.leftoverText, item.done && { textDecorationLine: 'line-through' }]}>
-                {item.text}
-              </ThemedText>
-            </ThemedView>
-          ))}
-        </ThemedView>
-      )}
+      {pastTasks.filter(task => !task.done).map(task => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          isLeftover
+          editingTaskId={editingTaskId}
+          editingText={editingText}
+          onToggle={toggleTask}
+          onDelete={deleteTask}
+          onOpenRecord={openRecordFromTask}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onStartEdit={() => {}}
+          onSetEditingText={setEditingText}
+        />
+      ))}
 
+      {previousMessages.filter(item => !item.done).map(item => (
+        <TaskRow
+          key={item.id}
+          task={{ ...item, date: '' }}
+          isLeftover
+          editingTaskId={editingTaskId}
+          editingText={editingText}
+          onToggle={togglePreviousMessage}
+          onDelete={(id) => setPreviousMessages(prev => prev.filter(item => item.id !== id))}
+          onOpenRecord={openRecordFromTask}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onStartEdit={() => {}}
+          onSetEditingText={setEditingText}
+        />
+      ))}
 
-
-      {todayTasks.map(task => (
+      {todayTasks.filter(task => !task.done).map(task => (
         <TaskRow
           key={task.id}
           task={task}
           editingTaskId={editingTaskId}
           editingText={editingText}
           onToggle={toggleTask}
+          onDelete={deleteTask}
+          onOpenRecord={openRecordFromTask}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onStartEdit={(selectedTask) => {
+            setEditingTaskId(selectedTask.id);
+            setEditingText(selectedTask.text);
+          }}
+          onSetEditingText={setEditingText}
+        />
+      ))}
+
+      {pastTasks.filter(task => task.done).map(task => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          isLeftover
+          editingTaskId={editingTaskId}
+          editingText={editingText}
+          onToggle={toggleTask}
+          onDelete={deleteTask}
+          onOpenRecord={openRecordFromTask}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onStartEdit={() => {}}
+          onSetEditingText={setEditingText}
+        />
+      ))}
+
+      {previousMessages.filter(item => item.done).map(item => (
+        <TaskRow
+          key={item.id}
+          task={{ ...item, date: '' }}
+          isLeftover
+          editingTaskId={editingTaskId}
+          editingText={editingText}
+          onToggle={togglePreviousMessage}
+          onDelete={(id) => setPreviousMessages(prev => prev.filter(item => item.id !== id))}
+          onOpenRecord={openRecordFromTask}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onStartEdit={() => {}}
+          onSetEditingText={setEditingText}
+        />
+      ))}
+
+      {todayTasks.filter(task => task.done).map(task => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          editingTaskId={editingTaskId}
+          editingText={editingText}
+          onToggle={toggleTask}
+          onDelete={deleteTask}
+          onOpenRecord={openRecordFromTask}
           onSaveEdit={saveEdit}
           onCancelEdit={cancelEdit}
           onStartEdit={(selectedTask) => {
@@ -656,23 +958,23 @@ console.log(
     );
   };
 
-  const renderPreviousMessages = () => (
-    <ThemedView style={styles.section}>
-      <ThemedText style={styles.sectionTitle}>
-        引き継ぎ
-      </ThemedText>
-      {previousMessages.map(item => (
-        <ThemedView key={item.id} style={styles.checklistRow}>
-          <TouchableOpacity onPress={() => togglePreviousMessage(item.id)} style={styles.checkButton}>
-            <ThemedText style={styles.checkButtonText}>{item.done ? '☑' : '☐'}</ThemedText>
-          </TouchableOpacity>
-          <ThemedText style={[styles.bullet, styles.checklistText, item.done && { textDecorationLine: 'line-through' }]}>
-            {item.text}
-          </ThemedText>
-        </ThemedView>
-      ))}
-    </ThemedView>
-  );
+  // const renderPreviousMessages = () => (
+  //   <ThemedView style={styles.section}>
+  //     <ThemedText style={styles.sectionTitle}>
+  //       引き継ぎ
+  //     </ThemedText>
+  //     {previousMessages.map(item => (
+  //       <ThemedView key={item.id} style={styles.checklistRow}>
+  //         <TouchableOpacity onPress={() => togglePreviousMessage(item.id)} style={styles.checkButton}>
+  //           <ThemedText style={styles.checkButtonText}>{item.done ? '☑' : '☐'}</ThemedText>
+  //         </TouchableOpacity>
+  //         <ThemedText style={[styles.bullet, styles.checklistText, item.done && { textDecorationLine: 'line-through' }]}>
+  //           {item.text}
+  //         </ThemedText>
+  //       </ThemedView>
+  //     ))}
+  //   </ThemedView>
+  // );
 
   const completePastTask = (id: string) => {
     (async () => {
@@ -688,6 +990,7 @@ console.log(
 
   const closeRecordModal = () => {
     setIsRecordModalVisible(false);
+    setRecordingTaskId(null);
   };
 
   const renderRecordModal = () => (
@@ -700,25 +1003,27 @@ console.log(
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <ThemedText style={styles.modalTitle}>勉強記録を入力</ThemedText>
+            <ThemedText style={styles.modalTitle}>入力する</ThemedText>
             <TouchableOpacity onPress={closeRecordModal} style={styles.modalCloseButton}>
               <ThemedText style={styles.modalCloseText}>×</ThemedText>
             </TouchableOpacity>
           </View>
-          <View style={styles.modalTabRow}>
-            <TouchableOpacity
-              style={[styles.modalTab, recordModalTab === 'todo' && styles.modalTabActive]}
-              onPress={() => setRecordModalTab('todo')}
-            >
-              <ThemedText style={[styles.modalTabText, recordModalTab === 'todo' && styles.modalTabTextActive]}>やること</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalTab, recordModalTab === 'record' && styles.modalTabActive]}
-              onPress={() => setRecordModalTab('record')}
-            >
-              <ThemedText style={[styles.modalTabText, recordModalTab === 'record' && styles.modalTabTextActive]}>やったこと</ThemedText>
-            </TouchableOpacity>
-          </View>
+          {!recordingTaskId && (
+            <View style={styles.modalTabRow}>
+              <TouchableOpacity
+                style={[styles.modalTab, recordModalTab === 'todo' && styles.modalTabActive]}
+                onPress={() => setRecordModalTab('todo')}
+              >
+                <ThemedText style={[styles.modalTabText, recordModalTab === 'todo' && styles.modalTabTextActive]}>やること</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalTab, recordModalTab === 'record' && styles.modalTabActive]}
+                onPress={() => setRecordModalTab('record')}
+              >
+                <ThemedText style={[styles.modalTabText, recordModalTab === 'record' && styles.modalTabTextActive]}>やったこと</ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
           <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalContentInner}>
             <ThemedText style={styles.label}>{recordModalTab === 'todo' ? '科目' : '科目'}</ThemedText>
             <View style={styles.pickerWrapper}>
@@ -733,6 +1038,9 @@ console.log(
             <View style={styles.pickerWrapper}>
               <Picker selectedValue={material} onValueChange={setMaterial}>
                 <Picker.Item label="選択してください" value="" color="#b8b8b8" />
+                {shouldShowSelectedMaterial && (
+                  <Picker.Item label={material} value={material} />
+                )}
                 {allMaterials.map(m => (
                   <Picker.Item key={m.name} label={m.name} value={m.name} />
                 ))}
@@ -749,20 +1057,24 @@ console.log(
                   value={customMaterial}
                   onChangeText={setCustomMaterial}
                 />
-                <ThemedText style={styles.label}>ポイント倍率</ThemedText>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="decimal-pad"
-                  inputMode="decimal"
-                  placeholder="例：1 1.2 0.5"
-                  placeholderTextColor="#b8b8b8"
-                  value={customPointRate}
-                  onChangeText={setCustomPointRate}
-                />
+                {recordModalTab === 'record' && (
+                  <>
+                    <ThemedText style={styles.label}>ポイント倍率</ThemedText>
+                    <TextInput
+                      style={styles.input}
+                      keyboardType="decimal-pad"
+                      inputMode="decimal"
+                      placeholder="例：1 1.2 0.5"
+                      placeholderTextColor="#b8b8b8"
+                      value={customPointRate}
+                      onChangeText={setCustomPointRate}
+                    />
+                  </>
+                )}
               </>
             )}
 
-            <ThemedText style={styles.label}>{recordModalTab === 'todo' ? '目標' : '記録'}</ThemedText>
+            <ThemedText style={styles.label}>{recordModalTab === 'todo' ? '目標' : 'メモ'}</ThemedText>
             <TextInput
               style={styles.input}
               placeholder={recordModalTab === 'todo' ? '例：二次関数を30問解く' : '例：二次関数を30問解いた'}
@@ -771,45 +1083,60 @@ console.log(
               onChangeText={text => recordModalTab === 'todo' ? setModalTaskText(text) : setContent(text)}
             />
 
-            <ThemedText style={styles.label}>難易度</ThemedText>
-            <View style={styles.pickerWrapper}>
-              <Picker selectedValue={difficulty} onValueChange={value => setDifficulty(value as Difficulty)}>
-                  <Picker.Item label="選択しない（1.0倍）" value="" color="#b8b8b8" />
-                <Picker.Item label="★★（1.5倍）" value="2" />
-                <Picker.Item label="★★★（1.8倍）" value="3" />
-              </Picker>
-            </View>
+            {recordModalTab === 'record' && (
+              <>
+                <ThemedText style={styles.label}>難易度</ThemedText>
+                <View style={styles.pickerWrapper}>
+                  <Picker selectedValue={difficulty} onValueChange={value => setDifficulty(value as Difficulty)}>
+                    <Picker.Item label="選択しない（1.0倍）" value="" color="#b8b8b8" />
+                    <Picker.Item label="★★（1.5倍）" value="2" />
+                    <Picker.Item label="★★★（1.8倍）" value="3" />
+                  </Picker>
+                </View>
 
-            <ThemedText style={styles.label}>単位</ThemedText>
-            {unitOptions.length > 0 ? (
-              <View style={styles.pickerWrapper}>
-                <Picker selectedValue={selectedUnit} onValueChange={setSelectedUnit}>
-                  <Picker.Item label="選択してください" value="" color="#b8b8b8" />
-                  {unitOptions.map(u => (
-                    <Picker.Item key={u.unit} label={`${u.unit} (${u.pointPerUnit}pt)`} value={u.unit} />
-                  ))}
-                </Picker>
-              </View>
-            ) : (
-              <ThemedText style={styles.noDataText}>設定画面で単位を設定してください</ThemedText>
+                <ThemedText style={styles.label}>単位</ThemedText>
+                {unitOptions.length > 0 ? (
+                  <View style={styles.pickerWrapper}>
+                    <Picker selectedValue={selectedUnit} onValueChange={setSelectedUnit}>
+                      <Picker.Item label="選択してください" value="" color="#b8b8b8" />
+                      {unitOptions.map(u => (
+                        <Picker.Item key={u.unit} label={`${u.unit} (${u.pointPerUnit}pt)`} value={u.unit} />
+                      ))}
+                    </Picker>
+                  </View>
+                ) : (
+                  <ThemedText style={styles.noDataText}>設定画面で単位を設定してください</ThemedText>
+                )}
+
+                <ThemedText style={styles.label}>量（{selectedUnit || '単位'}）</ThemedText>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="numeric"
+                  placeholder="例：5"
+                  placeholderTextColor="#b8b8b8"
+                  value={amount}
+                  onChangeText={setAmount}
+                />
+
+                <ThemedText style={styles.label}>かかった時間（分）</ThemedText>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="numeric"
+                  inputMode="numeric"
+                  placeholder="例：45"
+                  placeholderTextColor="#b8b8b8"
+                  value={durationMinutes}
+                  onChangeText={setDurationMinutes}
+                />
+
+                <ThemedView style={styles.pointBox}>
+                  <ThemedText style={styles.pointText}>今回のポイント：{point} pt</ThemedText>
+                  <ThemedText style={styles.pointHintText}>
+                    計算：{amount || 0}{selectedUnit || '単位'} × {selectedUnitRule?.pointPerUnit ?? 0}pt × {(difficulty === '1' ? 1.2 : difficulty === '2' ? 1.5 : difficulty === '3' ? 1.8 : 1).toFixed(1)}倍 = {point}pt
+                  </ThemedText>
+                </ThemedView>
+              </>
             )}
-
-            <ThemedText style={styles.label}>量（{selectedUnit || '単位'}）</ThemedText>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              placeholder="例：5"
-              placeholderTextColor="#b8b8b8"
-              value={amount}
-              onChangeText={setAmount}
-            />
-
-            <ThemedView style={styles.pointBox}>
-              <ThemedText style={styles.pointText}>今回のポイント：{point} pt</ThemedText>
-              <ThemedText style={styles.pointHintText}>
-                計算：{amount || 0}{selectedUnit || '単位'} × {selectedUnitRule?.pointPerUnit ?? 0}pt × {(difficulty === '1' ? 1.2 : difficulty === '2' ? 1.5 : difficulty === '3' ? 1.8 : 1).toFixed(1)}倍 = {point}pt
-              </ThemedText>
-            </ThemedView>
 
             <TouchableOpacity
               style={styles.addButton}
@@ -1359,28 +1686,54 @@ const styles = StyleSheet.create({
   taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 126,
-    backgroundColor: '#f2efff',
+    minHeight: 98,
+    backgroundColor: '#fff',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e3dcff',
-    paddingVertical: 18,
-    paddingLeft: 20,
-    paddingRight: 16,
-    marginBottom: 12,
+    borderColor: '#e9e1ff',
+    paddingVertical: 12,
+    paddingLeft: 16,
+    paddingRight: 14,
+    marginBottom: 10,
   },
 
   taskCardDone: {
-    backgroundColor: '#fbfaff',
-    borderColor: '#eae6f8',
+    backgroundColor: '#fff',
+    borderColor: '#e9e1ff',
   },
 
   taskDetails: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+
+  taskCheckButton: {
+    width: 24,
+    height: 24,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#aaa5d6',
+    backgroundColor: '#fff',
+  },
+
+  taskCheckButtonDone: {
+    borderColor: '#8d87c8',
+    backgroundColor: '#8d87c8',
+  },
+
+  taskCheckMark: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 18,
   },
 
   taskStatusBadge: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1402,13 +1755,19 @@ const styles = StyleSheet.create({
     color: '#77728e',
   },
 
+  taskLeftoverLabel: {
+    color: '#8b5d84',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   taskTitle: {
     flex: 1,
     color: '#302d45',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    lineHeight: 29,
-    marginTop: 8,
+    lineHeight: 25,
+    marginTop: 5,
   },
 
   taskTitleDone: {
@@ -1417,32 +1776,31 @@ const styles = StyleSheet.create({
   },
 
   taskHint: {
-    color: '#7e7996',
+    color: '#625c80',
     fontSize: 13,
-    marginTop: 5,
+    marginTop: 3,
   },
 
-  completeButton: {
-    width: 44,
-    height: 44,
-    marginLeft: 14,
-    borderRadius: 22,
+  taskDetailText: {
+    color: '#625c80',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  deleteTaskButton: {
+    width: 32,
+    height: 32,
+    marginLeft: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#aaa5d6',
-    backgroundColor: '#fff',
+    borderRadius: 16,
+    backgroundColor: '#f7e8ed',
   },
 
-  completeButtonDone: {
-    borderColor: '#8d87c8',
-    backgroundColor: '#8d87c8',
+  deleteTaskButtonText: {
+    fontSize: 16,
+    lineHeight: 19,
   },
 
-  completeButtonMark: {
-    color: '#fff',
-    fontSize: 27,
-    fontWeight: '700',
-    lineHeight: 30,
-  },
 });
