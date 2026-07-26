@@ -1,21 +1,19 @@
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Modal,
-  Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
-  View,
+  View
 } from 'react-native';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { DatePickerModal } from 'react-native-paper-dates';
 import { auth, db } from '../../lib/firebase';
 
 type Subject = '数学' | '国語' | '理科' | '社会' | '英語';
@@ -93,49 +91,70 @@ export default function TestOverviewScreen() {
     return isNaN(parsed.getTime()) ? new Date() : parsed;
   }, [testDateText]);
 
+useEffect(() => {
+  if (!user) return;
+
+  if (!testDateText) return;
+
+  saveTestInfo({ silent: true });
+}, [testDateText]);
+
   const openCalendar = () => {
     setIsDateFocused(true);
     setIsCalendarVisible(true);
   };
 
-  const closeCalendarAndSave = () => {
-    setIsCalendarVisible(false);
-    setIsDateFocused(false);
-    saveTestInfo({ silent: true });
-  };
+ const saveTestInfo = async (
+  options?: {
+    silent?: boolean;
+  }
+) => {
+  const silent = options?.silent ?? false;
 
-  const saveTestInfo = async (options?: { silent?: boolean }) => {
-    const silent = options?.silent ?? false;
+  if (!user) {
+    Alert.alert('ログインが必要', 'テスト情報を保存するにはログインしてください。');
+    return;
+  }
 
-    if (!user) {
-      Alert.alert('ログインが必要', 'テスト情報を保存するにはログインしてください。');
+  if (testDateText && !isValidYMD(testDateText)) {
+    Alert.alert('日付形式が不正です', '日付は YYYY-MM-DD 形式で入力してください');
+    return;
+  }
+
+  try {
+    const payload: any = {};
+
+    if (goalText && goalText.trim() !== '') {
+      payload.testGoal = goalText;
+    }
+
+    if (testDateText) {
+      payload.testDate = testDateText;
+    }
+
+    console.log('testrecord: saving user doc', JSON.stringify(payload));
+
+    if (Object.keys(payload).length === 0) {
+      if (!silent) Alert.alert('保存する内容がありません');
       return;
     }
 
-    if (testDateText && !isValidYMD(testDateText)) {
-      Alert.alert('日付形式が不正です', '日付は YYYY-MM-DD 形式で入力してください');
-      return;
-    }
+    await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
 
-    try {
-      const payload: any = {};
-      if (goalText && goalText.trim() !== '') payload.testGoal = goalText;
-      if (testDateText) payload.testDate = testDateText;
-      console.log('testrecord: saving user doc', JSON.stringify(payload));
-      if (Object.keys(payload).length === 0) {
-        if (!silent) Alert.alert('保存する内容がありません');
-        return;
-      }
-      await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
-      const snap = await getDoc(doc(db, 'users', user.uid));
-      console.log('testrecord: saved doc snapshot', JSON.stringify(snap.data()));
-      console.log('testrecord: save succeeded');
-      if (!silent) Alert.alert('保存しました');
-    } catch (e) {
-      console.warn('saveTestInfo failed', e);
-      Alert.alert('保存に失敗しました');
+    const snap = await getDoc(doc(db, 'users', user.uid));
+
+    console.log('testrecord: saved doc snapshot', JSON.stringify(snap.data()));
+
+    if (!silent) {
+      Alert.alert('保存しました');
     }
-  };
+  } catch (e) {
+    console.warn('saveTestInfo failed', e);
+    Alert.alert('保存に失敗しました');
+  }
+};
+
+
 
   const deleteTestInfo = () => {
     if (!user) {
@@ -260,7 +279,8 @@ export default function TestOverviewScreen() {
   };
 
   return (
-    <ScrollView
+    <PaperProvider>
+      <ScrollView
       style={styles.container}
       contentContainerStyle={{ padding: 18, flexGrow: 1 }}
       keyboardShouldPersistTaps="handled"
@@ -314,27 +334,25 @@ export default function TestOverviewScreen() {
         </View>
       </View>
 
-      <Modal
-        visible={isCalendarVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeCalendarAndSave}
-      >
-        <Pressable style={styles.calendarOverlay} onPress={closeCalendarAndSave}>
-          <Pressable style={styles.calendarPanel} onPress={event => event.stopPropagation()}>
-            <DateTimePicker
-              value={selectedDateForPicker}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-              onChange={(_, selectedDate) => {
-                if (selectedDate) {
-                  setTestDateText(formatDate(selectedDate));
-                }
-              }}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <DatePickerModal
+  locale="ja"
+  mode="single"
+  visible={isCalendarVisible}
+  date={selectedDateForPicker}
+  onDismiss={() => {
+    setIsCalendarVisible(false);
+    setIsDateFocused(false);
+  }}
+onConfirm={({ date }) => {
+  if (date) {
+    setTestDateText(formatDate(date));
+  }
+
+  setIsCalendarVisible(false);
+  setIsDateFocused(false);
+}}
+
+/>
 
       <View style={styles.divider} />
 
@@ -473,7 +491,9 @@ export default function TestOverviewScreen() {
         </View>
       </View>
     </ScrollView>
+    </PaperProvider>
   );
+
 }
 
 /* ===== styles ===== */
@@ -748,23 +768,5 @@ dateInputPlaceholder: {
     borderRadius: 16,
     fontFamily: Fonts.rounded,
   },
-
-  calendarOverlay: {
-  flex: 1,
-  backgroundColor: 'rgba(0,0,0,0.25)',
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-
-calendarPanel: {
-  backgroundColor: '#fff',
-  borderRadius: 20,
-  padding: 12,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.2,
-  shadowRadius: 8,
-  elevation: 5,
-},
 
 });
