@@ -140,9 +140,13 @@ export default function CalendarScreen() {
       return <TouchableOpacity key={key} style={[
   styles.day,
   !isCurrentMonth && styles.otherMonth,
-  isToday && styles.todayDay,
+  isToday && styles.todayDayPink,
   key === selectedDate && styles.selectedDay,
 ]}onPress={() => setSelectedDate(key)}>
+
+   <ThemedText style={styles.dayNumber}>
+    {day.getDate()}
+  </ThemedText>
         {isTest && <ThemedText style={styles.testBadge}>テスト</ThemedText>}
         {hasRecord && <ThemedText style={styles.recordBadge}>記録</ThemedText>}
         {dayTasks.length > 0 && <ThemedText style={styles.taskBadge}>{dayTasks.filter(task => task.done).length}/{dayTasks.length} 完了</ThemedText>}
@@ -408,7 +412,13 @@ dayNumberWrapper: {
   position: 'relative',
 },
 
-todayDay: {
+todayDayRed: {
   backgroundColor: '#FFEAEA', // 薄い赤
+},
+todayDayPink: {
+  backgroundColor: '#FFF2F2',
+},
+dayNumber: {
+  fontWeight: '700',
 },
 });
