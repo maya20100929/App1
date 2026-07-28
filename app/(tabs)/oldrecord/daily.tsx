@@ -71,6 +71,10 @@ export default function DailyDetailScreen() {
       <ThemedText style={styles.title}>日別 詳細</ThemedText>
       <ThemedText style={styles.dateText}>{dateParam}</ThemedText>
 
+      {records.length === 0 ? (
+        <ThemedText style={styles.emptyText}>記録なし</ThemedText>
+      ) : (
+        <>
       <View style={styles.box}>
         <ThemedText style={styles.boxTitle}>合計：{totalPoint} pt</ThemedText>
         <ThemedText style={styles.durationTotal}>この日の学習時間：{formatDuration(totalDurationMinutes)}</ThemedText>
@@ -99,6 +103,8 @@ export default function DailyDetailScreen() {
           </View>
         ))}
       </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -108,6 +114,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
   dateText: { fontSize: 16, color: '#666', marginBottom: 16 },
+  emptyText: { fontSize: 18, textAlign: 'center', marginTop: 32, color: '#777' },
   box: {
     borderWidth: 1,
     borderColor: '#ccc',

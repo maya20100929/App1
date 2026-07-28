@@ -15,6 +15,7 @@ import {
   View
 } from 'react-native';
 import { getUnitPointRulesBySubject, saveUnitPointRule } from '../../lib/recordStore';
+import { addSubject, deleteSubject, getSubjectSettings, updateSubject, type SubjectSetting } from '../../lib/subjectStore';
 
 export default function SettingsScreen() {
   const [searchText, setSearchText] = useState('');
@@ -27,16 +28,21 @@ export default function SettingsScreen() {
 
   // 単位設定用
   const [showUnitSettings, setShowUnitSettings] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState<'数学' | '英語' | '国語' | '理科' | '社会'>('数学');
+  const [selectedSubject, setSelectedSubject] = useState('数学');
   const [unitSettings, setUnitSettings] = useState<{ unit: string; pointPerUnit: number }[]>([]);
   const [newUnit, setNewUnit] = useState('問');
   const [newPointPerUnit, setNewPointPerUnit] = useState('');
 
-  const subjects = ['数学', '英語', '国語', '理科', '社会'] as const;
+  const [subjects, setSubjects] = useState<SubjectSetting[]>([]);
+  const [newSubject, setNewSubject] = useState('');
+  const [newSubjectColor, setNewSubjectColor] = useState('#6C7BFA');
+  const [editingSubject, setEditingSubject] = useState<string | null>(null);
+  const [editingSubjectName, setEditingSubjectName] = useState('');
+  const [graphColor, setGraphColor] = useState('#6C7BFA');
   const unitOptions = ['問', 'ページ', '語', 'セット', '分', 'その他'];  // 単位選択肢
 
   // 単位設定を読み込む
-  const loadUnitSettings = async (subject: typeof selectedSubject) => {
+  const loadUnitSettings = async (subject: string) => {
     try {
       const rules = await getUnitPointRulesBySubject(subject);
       setUnitSettings(rules.map(r => ({ unit: r.unit, pointPerUnit: r.pointPerUnit })));
@@ -79,9 +85,13 @@ export default function SettingsScreen() {
       const saved = await AsyncStorage.getItem('lastLogin');
       const savedName = await AsyncStorage.getItem('userName');
       const savedGrade = await AsyncStorage.getItem('grade');
+      const savedSubjects = await getSubjectSettings();
+      const savedGraphColor = await AsyncStorage.getItem('graphColor');
 
       if (savedName) setUserName(savedName);
       if (savedGrade) setGrade(savedGrade);
+      setSubjects(savedSubjects);
+      if (savedGraphColor) setGraphColor(savedGraphColor);
       if (saved) {
         const d = new Date(saved);
         setLastLogin(
@@ -92,6 +102,40 @@ export default function SettingsScreen() {
       }
     })();
   }, []);
+
+  const handleAddSubject = async () => {
+    const name = newSubject.trim();
+    if (!name) {
+      Alert.alert('入力してください', '追加する教科名を入力してください。');
+      return;
+    }
+    const updated = await addSubject(name, newSubjectColor);
+    setSubjects(updated);
+    setSelectedSubject(name);
+    setNewSubject('');
+  };
+
+  const saveSubjectEdit = async (subject: SubjectSetting) => {
+    const updated = await updateSubject(subject.name, editingSubjectName, subject.color);
+    setSubjects(updated);
+    if (selectedSubject === subject.name) setSelectedSubject(editingSubjectName.trim());
+    setEditingSubject(null);
+  };
+
+  const changeSubjectColor = async (subject: SubjectSetting, color: string) => {
+    setSubjects(await updateSubject(subject.name, subject.name, color));
+  };
+
+  const removeSubject = async (name: string) => {
+    const updated = await deleteSubject(name);
+    setSubjects(updated);
+    if (selectedSubject === name) setSelectedSubject(updated[0]?.name ?? '');
+  };
+
+  const handleSelectGraphColor = async (color: string) => {
+    setGraphColor(color);
+    await AsyncStorage.setItem('graphColor', color);
+  };
 
   // テーマカラー保存
   const handleSelectColor = async (color: string) => {
@@ -129,6 +173,8 @@ export default function SettingsScreen() {
   const settingsItems = [
     // { section: 'プロフィール', label: '名前・学年を設定', type: 'profile' },
     { section: 'ポイント設定', label: 'ポイント計算ルール', type: 'unit' },
+    { section: '教科設定', label: '教科を追加', type: 'subject' },
+    { section: 'グラフ設定', label: 'グラフの色', type: 'graphColor' },
     // { section: 'テーマカラー', label: 'テーマカラー', type: 'color' },
     // { section: '利用履歴', label: '最終ログイン', type: 'text' },
     // { section: '通知', label: '通知オン/オフ（後で実装）', type: 'text' },
@@ -185,7 +231,7 @@ export default function SettingsScreen() {
                         onValueChange={setSelectedSubject}
                       >
                         {subjects.map(s => (
-                          <Picker.Item key={s} label={s} value={s} />
+                          <Picker.Item key={s.name} label={s.name} value={s.name} />
                         ))}
                       </Picker>
                     </View>
@@ -275,6 +321,65 @@ export default function SettingsScreen() {
     </View>
   );
 }
+
+        if (item.type === 'subject') {
+          return (
+            <View key={index}>
+              <ThemedText style={styles.sectionTitle}>{item.label}</ThemedText>
+              <View style={styles.box}>
+                <View style={styles.addSubjectRow}>
+                  <TextInput
+                    style={[styles.searchInput, styles.addSubjectInput]}
+                    placeholder="例：音楽、副教科"
+                    value={newSubject}
+                    onChangeText={setNewSubject}
+                  />
+                  <TouchableOpacity style={styles.modalButton} onPress={handleAddSubject}>
+                    <ThemedText style={styles.modalButtonText}>追加</ThemedText>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.colorRow}>
+                  {themeColors.map(color => (
+                    <TouchableOpacity key={color} style={[styles.colorDot, { backgroundColor: color }, newSubjectColor === color && styles.selectedDot]} onPress={() => setNewSubjectColor(color)} />
+                  ))}
+                </View>
+                {subjects.map(subject => (
+                  <View key={subject.name} style={styles.subjectSettingRow}>
+                    {editingSubject === subject.name ? (
+                      <TextInput style={[styles.searchInput, styles.addSubjectInput]} value={editingSubjectName} onChangeText={setEditingSubjectName} />
+                    ) : (
+                      <ThemedText style={styles.subjectName}>{subject.name}</ThemedText>
+                    )}
+                    {themeColors.map(color => (
+                      <TouchableOpacity key={color} style={[styles.smallColorDot, { backgroundColor: color }, subject.color === color && styles.selectedDot]} onPress={() => changeSubjectColor(subject, color)} />
+                    ))}
+                    <TouchableOpacity onPress={() => editingSubject === subject.name ? saveSubjectEdit(subject) : (setEditingSubject(subject.name), setEditingSubjectName(subject.name))}>
+                      <ThemedText style={styles.subjectAction}>{editingSubject === subject.name ? '保存' : '編集'}</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeSubject(subject.name)}><ThemedText style={styles.deleteSubject}>削除</ThemedText></TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        }
+
+        if (item.type === 'graphColor') {
+          return (
+            <View key={index}>
+              <ThemedText style={styles.sectionTitle}>{item.label}</ThemedText>
+              <View style={styles.colorRow}>
+                {themeColors.map(color => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[styles.colorDot, { backgroundColor: color }, graphColor === color && styles.selectedDot]}
+                    onPress={() => handleSelectGraphColor(color)}
+                  />
+                ))}
+              </View>
+            </View>
+          );
+        }
 
         if (item.type === 'color') {
           // テーマカラー
@@ -544,6 +649,13 @@ const styles = StyleSheet.create({
   },
 
   boxText: { fontSize: 16, color: '#aaacf5ff' },
+  addSubjectRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  addSubjectInput: { flex: 1, marginBottom: 0 },
+  subjectSettingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#eee' },
+  subjectName: { flex: 1, fontSize: 16, color: '#5b2f6f' },
+  smallColorDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#ddd' },
+  subjectAction: { color: '#6C7BFA', fontWeight: '700', marginLeft: 4 },
+  deleteSubject: { color: '#d85f45', fontWeight: '700', marginLeft: 4 },
   itemButton: {
     paddingVertical: 12,
   },
@@ -665,4 +777,3 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
 });
-

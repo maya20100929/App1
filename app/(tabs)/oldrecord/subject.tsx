@@ -4,9 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { getAllRecords, StudyRecord } from '../../../lib/recordStore';
 
-type Subject = '数学' | '英語' | '国語' | '理科' | '社会';
-
-const subjectColors: Record<Subject, string> = {
+const subjectColors: Record<string, string> = {
   数学: '#6C7BFA',
   英語: '#4CAF50',
   国語: '#9C27B0',
@@ -37,21 +35,16 @@ export default function SubjectDetailScreen() {
   };
 
   const subjectPoints = useMemo(() => {
-    const map: Record<Subject, { point: number; entries: StudyRecord[] }> = {
-      数学: { point: 0, entries: [] },
-      英語: { point: 0, entries: [] },
-      国語: { point: 0, entries: [] },
-      理科: { point: 0, entries: [] },
-      社会: { point: 0, entries: [] },
-    };
+    const map: Record<string, { point: number; entries: StudyRecord[] }> = {};
     records.forEach(r => {
+      if (!map[r.subject]) map[r.subject] = { point: 0, entries: [] };
       map[r.subject].point += r.point;
       map[r.subject].entries.push(r);
     });
     return Object.entries(map)
       .filter(([, { point }]) => point > 0)
       .map(([subject, { point, entries }]) => ({
-        subject: subject as Subject,
+        subject,
         point,
         entries,
       }));
@@ -79,7 +72,7 @@ export default function SubjectDetailScreen() {
                 <View
                   style={[
                     styles.colorIndicator,
-                    { backgroundColor: subjectColors[subject] },
+                    { backgroundColor: subjectColors[subject] ?? '#6C7BFA' },
                   ]}
                 />
                 <View style={styles.subjectContent}>

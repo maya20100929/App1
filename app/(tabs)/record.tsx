@@ -11,39 +11,23 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord } from '../../lib/recordStore';
+import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
+import { getSubjects } from '../../lib/subjectStore';
 
 /* =====================
    型定義
 ===================== */
-type Subject = '数学' | '英語' | '国語' | '理科' | '社会';
 type Difficulty = '' | '1' | '2' | '3';
-
-type SubjectRule = {
-  subject: Subject;
-  unit: string;
-};
 
 type PointRule = {
   [material: string]: number;
 };
 
-type PointRules = {
-  [key in Subject]: PointRule;
-};
 
 /* =====================
    初期データ
 ===================== */
-const subjectRules: SubjectRule[] = [
-  { subject: '数学', unit: '問' },
-  { subject: '英語', unit: '語' },
-  { subject: '国語', unit: 'ページ' },
-  { subject: '理科', unit: '問' },
-  { subject: '社会', unit: 'ページ' },
-];
-
-const pointRules: PointRules = {
+const pointRules: Record<string, PointRule> = {
   数学: {
     青チャート: 1,
     フォーカスゴールド: 1.2,
@@ -65,6 +49,7 @@ const pointRules: PointRules = {
 
 export default function RecordScreen() {
   const [subject, setSubject] = useState<Subject>('数学');
+  const [subjects, setSubjects] = useState<string[]>([]);
 
   const [material, setMaterial] = useState('');
   const [customMaterial, setCustomMaterial] = useState('');
@@ -112,7 +97,7 @@ export default function RecordScreen() {
   const loadMaterials = useCallback(async () => {
     try {
       // 定義済み教材
-      const baseMaterials = Object.entries(pointRules[subject]).map(([name, rate]) => ({
+      const baseMaterials = Object.entries(pointRules[subject] ?? {}).map(([name, rate]) => ({
         name,
         rate,
       }));
@@ -153,6 +138,7 @@ export default function RecordScreen() {
     useCallback(() => {
       loadMaterials();
       loadUnitRules();
+      getSubjects().then(setSubjects).catch(error => console.error('Failed to load subjects:', error));
     }, [loadMaterials, loadUnitRules])
   );
 
@@ -268,8 +254,8 @@ export default function RecordScreen() {
       <ThemedText style={styles.label}>科目</ThemedText>
       <View style={styles.pickerWrapper}>
         <Picker selectedValue={subject} onValueChange={setSubject}>
-          {subjectRules.map(r => (
-            <Picker.Item key={r.subject} label={r.subject} value={r.subject} />
+          {subjects.map(item => (
+            <Picker.Item key={item} label={item} value={item} />
           ))}
         </Picker>
       </View>

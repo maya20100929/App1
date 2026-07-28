@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
-export type Subject = '数学' | '英語' | '国語' | '理科' | '社会';
+export type Subject = string;
 
 export type StudyRecord = {
   id: string;

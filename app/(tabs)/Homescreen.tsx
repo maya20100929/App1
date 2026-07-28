@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
 import { Picker } from '@react-native-picker/picker';
+import { router, useFocusEffect } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   addDoc,
@@ -25,6 +26,7 @@ import {
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
+import { getSubjects } from '../../lib/subjectStore';
 
 const HomeScreen: FC = () => {
 
@@ -43,14 +45,6 @@ const HomeScreen: FC = () => {
   };
 
   type Difficulty = '' | '1' | '2' | '3';
-
-  const subjectRules = [
-    { subject: '数学', unit: '問' },
-    { subject: '英語', unit: '語' },
-    { subject: '国語', unit: 'ページ' },
-    { subject: '理科', unit: '問' },
-    { subject: '社会', unit: 'ページ' },
-  ] as const;
 
   const pointRules = {
     数学: {
@@ -94,6 +88,8 @@ const HomeScreen: FC = () => {
   const [selectedUnit, setSelectedUnit] = useState('');
   const [allMaterials, setAllMaterials] = useState<{ name: string; rate: number }[]>([]);
   const [unitOptions, setUnitOptions] = useState<{ unit: string; pointPerUnit: number }[]>([]);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [dayBoundaryTick, setDayBoundaryTick] = useState(0);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -101,6 +97,31 @@ const HomeScreen: FC = () => {
       setUser(u);
     });
     return () => unsub();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      getSubjects().then(setSubjects).catch(error => console.error('Homescreen load subjects failed', error));
+    }, [])
+  );
+
+  // 日付をまたいだら一覧を再判定し、前日までに完了したタスクを表示から外す。
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    const scheduleNextMidnight = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 0);
+
+      timer = setTimeout(() => {
+        setDayBoundaryTick(tick => tick + 1);
+        scheduleNextMidnight();
+      }, nextMidnight.getTime() - now.getTime());
+    };
+
+    scheduleNextMidnight();
+    return () => clearTimeout(timer);
   }, []);
 
   // listen to tasks for current user
@@ -137,14 +158,13 @@ const HomeScreen: FC = () => {
         }
         const td = new Date(t.date);
         td.setHours(0, 0, 0, 0);
+        // 完了済みのタスクは当日だけ表示する。翌日以降は一覧に残さない。
+        if (t.done && td < today) {
+          return;
+        }
         if (!t.done && td < today) {
           pastArr.push(t);
-        } else if (!t.done && td.getTime() === today.getTime()) {
-          todayArr.push(t);
-        } else if (t.done && td.getTime() === today.getTime()) {
-          todayArr.push(t);
         } else {
-          // future or other tasks, treat as today when date matches
           todayArr.push(t);
         }
       });
@@ -163,7 +183,7 @@ console.log(
     });
 
     return () => unsub();
-  }, [user]);
+  }, [user, dayBoundaryTick]);
 
   useEffect(() => {
     if (!user) {
@@ -184,7 +204,7 @@ console.log(
 
   const loadMaterials = useCallback(async () => {
     try {
-      const baseMaterials = Object.entries(pointRules[subject]).map(([name, rate]) => ({
+      const baseMaterials = Object.entries(pointRules[subject as keyof typeof pointRules] ?? {}).map(([name, rate]) => ({
         name,
         rate,
       }));
@@ -257,6 +277,10 @@ console.log(
         const taskDate = new Date(task.date);
         taskDate.setHours(0, 0, 0, 0);
 
+        if (task.done && taskDate < today) {
+          return;
+        }
+
         if (!task.done && taskDate < today) {
           moved.push(task);
         } else {
@@ -270,7 +294,7 @@ console.log(
 
       return stillToday;
     });
-  }, []);
+  }, [dayBoundaryTick]);
 
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
 
@@ -1028,8 +1052,8 @@ console.log(
             <ThemedText style={styles.label}>{recordModalTab === 'todo' ? '科目' : '科目'}</ThemedText>
             <View style={styles.pickerWrapper}>
               <Picker selectedValue={subject} onValueChange={setSubject}>
-                {subjectRules.map(r => (
-                  <Picker.Item key={r.subject} label={r.subject} value={r.subject} />
+                {subjects.map(item => (
+                  <Picker.Item key={item} label={item} value={item} />
                 ))}
               </Picker>
             </View>
@@ -1164,6 +1188,9 @@ console.log(
             {testDateText || '日付が未設定'}
           </ThemedText>
         </ThemedView>
+        <TouchableOpacity style={styles.attackButton} onPress={() => router.push('/attack')}>
+          <ThemedText style={styles.attackButtonText}>アタック</ThemedText>
+        </TouchableOpacity>
 
         {renderTasks()}
         {renderRecordModal()}
@@ -1186,6 +1213,10 @@ console.log(
         </ThemedView>
 
         <ThemedView style={{ height: 30 }} />
+
+        <TouchableOpacity style={styles.attackButton} onPress={() => router.push('/attack')}>
+          <ThemedText style={styles.attackButtonText}>アタック</ThemedText>
+        </TouchableOpacity>
 
         <ThemedView style={styles.twoColumnsVertical}>
           <ThemedView style={styles.columnFull}>{renderTasks()}</ThemedView>
@@ -1467,6 +1498,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+
+  attackButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 12,
+    backgroundColor: '#ff8e72',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  attackButtonText: { color: '#fff', fontWeight: '800' },
 
   leftoverCard: {
     borderWidth: 1,

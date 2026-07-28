@@ -10,48 +10,15 @@ import {
   View,
 } from 'react-native';
 import Svg, { Line, Path, Polyline } from 'react-native-svg';
-import { getAllRecords, StudyRecord, Subject } from '../../../lib/recordStore';
+import { getAllRecords, StudyRecord } from '../../../lib/recordStore';
 
 /* =====================
    仮データ（初期値）
 ===================== */
-const initialRecords: StudyRecord[] = [
-  {
-    id: '1',
-    date: '2025-12-20',
-    subject: '数学',
-    material: '青チャート',
-    content: '二次関数',
-    amount: 15,
-    unit: '問',
-    point: 15,
-  },
-  {
-    id: '2',
-    date: '2025-12-21',
-    subject: '英語',
-    material: '単語帳',
-    content: 'Section1',
-    amount: 50,
-    unit: '語',
-    point: 10,
-  },
-  {
-    id: '3',
-    date: '2025-12-21',
-    subject: '数学',
-    material: '青チャート',
-    content: '微分',
-    amount: 10,
-    unit: '問',
-    point: 10,
-  },
-];
-
 /* =====================
    色
 ===================== */
-const subjectColors: Record<Subject, string> = {
+const subjectColors: Record<string, string> = {
   数学: '#6C7BFA',
   英語: '#4CAF50',
   国語: '#9C27B0',
@@ -69,13 +36,17 @@ export default function OldRecordScreen() {
   const { width } = useWindowDimensions();
   const isPC = width >= 768;
 
-  const [records, setRecords] = useState<StudyRecord[]>(initialRecords);
+  const [records, setRecords] = useState<StudyRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [graphColor, setGraphColor] = useState('#6C7BFA');
 
   // 画面フォーカス時にFirebaseからデータを取得
   useFocusEffect(
     useCallback(() => {
       loadRecords();
+      AsyncStorage.getItem('graphColor').then(color => {
+        if (color) setGraphColor(color);
+      });
     }, [])
   );
 
@@ -122,14 +93,10 @@ export default function OldRecordScreen() {
         console.error('AsyncStorage読込失敗:', asError);
       }
 
-      if (allRecords.length > 0) {
-        setRecords(allRecords);
-      } else {
-        setRecords(initialRecords);
-      }
+      setRecords(allRecords);
     } catch (error) {
       console.error('Failed to load records:', error);
-      setRecords(initialRecords);
+      setRecords([]);
     } finally {
       setIsLoading(false);
     }
@@ -180,15 +147,9 @@ export default function OldRecordScreen() {
   }, [records]);
 
   const subjectPoints = useMemo(() => {
-    const map: Record<Subject, number> = {
-      数学: 0,
-      英語: 0,
-      国語: 0,
-      理科: 0,
-      社会: 0,
-    };
+    const map: Record<string, number> = {};
     records.forEach(r => {
-      map[r.subject] += r.point;
+      map[r.subject] = (map[r.subject] || 0) + r.point;
     });
     return map;
   }, [records]);
@@ -201,7 +162,7 @@ export default function OldRecordScreen() {
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [records]);
 
-  const pieData = Object.entries(subjectPoints) as [Subject, number][];
+  const pieData = Object.entries(subjectPoints) as [string, number][];
 
   useEffect(() => {
     console.log('dailyPoints:', dailyPoints);
@@ -213,6 +174,8 @@ export default function OldRecordScreen() {
 
       {isLoading ? (
         <ThemedText style={styles.loadingText}>読み込み中...</ThemedText>
+      ) : records.length === 0 ? (
+        <ThemedText style={styles.emptyText}>記録なし</ThemedText>
       ) : (
         <>
           <View style={styles.totalBox}>
@@ -251,7 +214,7 @@ export default function OldRecordScreen() {
                           .map((d, i) => `${i * 80 + 20},${100 - d.point * scale}`)
                           .join(' ')}
                         fill="none"
-                        stroke="#6C7BFA"
+                        stroke={graphColor}
                         strokeWidth="3"
                       />
                       <Line x1="10" y1="100" x2="290" y2="100" stroke="#ccc" />
@@ -301,7 +264,7 @@ export default function OldRecordScreen() {
                       <Path
                         key={subject}
                         d={pathData}
-                        fill={subjectColors[subject]}
+                        fill={subjectColors[subject] ?? graphColor}
                         stroke="#fff"
                         strokeWidth="2"
                       />
@@ -347,7 +310,7 @@ export default function OldRecordScreen() {
                         .map((item, index) => `${20 + index * xStep},${105 - (item.minutes / maxMinutes) * 80}`)
                         .join(' ')}
                       fill="none"
-                      stroke="#8d87c8"
+                      stroke={graphColor}
                       strokeWidth="3"
                     />
                     <Line x1="20" y1="105" x2="260" y2="105" stroke="#d9d3ed" />
@@ -385,6 +348,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
   loadingText: { fontSize: 16, textAlign: 'center', marginTop: 20 },
+  emptyText: { fontSize: 18, textAlign: 'center', marginTop: 32, color: '#777' },
 
   totalBox: {
     backgroundColor: '#fff',
