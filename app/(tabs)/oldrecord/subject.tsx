@@ -83,7 +83,9 @@ export default function SubjectDetailScreen() {
               <View style={styles.entriesBox}>
                 {entries.map((entry) => (
                   <View key={entry.id} style={styles.entryItem}>
-                    <ThemedText style={styles.entryMaterial}>{entry.material}</ThemedText>
+                    <ThemedText style={styles.entryMaterial}>
+                      {entry.category ? `${entry.category} / ` : ''}{entry.material}
+                    </ThemedText>
                     <ThemedText style={styles.entryContent}>{entry.content}</ThemedText>
                     <ThemedText style={styles.entryAmount}>{entry.amount} {entry.unit} → {entry.point} pt</ThemedText>
                     <ThemedText style={styles.entryDate}>{entry.date}</ThemedText>

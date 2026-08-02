@@ -18,6 +18,7 @@ export type StudyRecord = {
   id: string;
   date: string;
   subject: Subject;
+  category?: string;
   material: string;
   content: string;
   amount: number;

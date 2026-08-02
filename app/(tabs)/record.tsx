@@ -12,7 +12,7 @@ import {
   View
 } from 'react-native';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
-import { getSubjects } from '../../lib/subjectStore';
+import { getSubjectSettings, type SubjectSetting } from '../../lib/subjectStore';
 
 /* =====================
    型定義
@@ -50,6 +50,8 @@ const pointRules: Record<string, PointRule> = {
 export default function RecordScreen() {
   const [subject, setSubject] = useState<Subject>('数学');
   const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectSettings, setSubjectSettings] = useState<SubjectSetting[]>([]);
+  const [category, setCategory] = useState('');
 
   const [material, setMaterial] = useState('');
   const [customMaterial, setCustomMaterial] = useState('');
@@ -138,8 +140,18 @@ export default function RecordScreen() {
     useCallback(() => {
       loadMaterials();
       loadUnitRules();
-      getSubjects().then(setSubjects).catch(error => console.error('Failed to load subjects:', error));
+      getSubjectSettings()
+        .then(settings => {
+          setSubjectSettings(settings);
+          setSubjects(settings.map(item => item.name));
+        })
+        .catch(error => console.error('Failed to load subjects:', error));
     }, [loadMaterials, loadUnitRules])
+  );
+
+  const categories = useMemo(
+    () => subjectSettings.find(item => item.name === subject)?.categories ?? [],
+    [subject, subjectSettings]
   );
 
   /* =====================
@@ -180,6 +192,7 @@ export default function RecordScreen() {
       const record = {
         date: new Date().toISOString().slice(0, 10),
         subject,
+        ...(category ? { category } : {}),
         material: actualMaterial,
         content,
         amount: Number(amount),
@@ -213,7 +226,7 @@ export default function RecordScreen() {
 
       Alert.alert(
         '保存しました',
-        `${subject} / ${actualMaterial}\n${amount}${actualUnit} → ${point} pt\n難易度：${difficultyLabel}`
+        `${subject}${category ? `（${category}）` : ''} / ${actualMaterial}\n${amount}${actualUnit} → ${point} pt\n難易度：${difficultyLabel}`
       );
 
       // フォームをリセット
@@ -223,6 +236,7 @@ export default function RecordScreen() {
       setContent('');
       setAmount('');
       setDifficulty('');
+      setCategory('');
 
       // 教材リストを再読み込み後、最初のユニットを選択
       try {
@@ -244,7 +258,7 @@ export default function RecordScreen() {
       console.error('Save error:', error);
       Alert.alert('エラー', '保存に失敗しました');
     }
-  }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, point, customMaterial, difficulty, difficultyMultiplier]);
+  }, [actualMaterial, content, amount, actualUnit, material, customPointRate, subject, category, point, customMaterial, difficulty, difficultyMultiplier]);
 
   return (
     <ScrollView style={styles.container}>
@@ -253,12 +267,26 @@ export default function RecordScreen() {
       {/* 科目 */}
       <ThemedText style={styles.label}>科目</ThemedText>
       <View style={styles.pickerWrapper}>
-        <Picker selectedValue={subject} onValueChange={setSubject}>
+        <Picker selectedValue={subject} onValueChange={value => { setSubject(value); setCategory(''); }}>
           {subjects.map(item => (
             <Picker.Item key={item} label={item} value={item} />
           ))}
         </Picker>
       </View>
+
+      {categories.length > 0 && (
+        <>
+          <ThemedText style={styles.label}>分類</ThemedText>
+          <View style={styles.pickerWrapper}>
+            <Picker selectedValue={category} onValueChange={setCategory}>
+              <Picker.Item label="選択しない" value="" />
+              {categories.map(item => (
+                <Picker.Item key={item} label={item} value={item} />
+              ))}
+            </Picker>
+          </View>
+        </>
+      )}
 
       {/* 教材 */}
       <ThemedText style={styles.label}>教材</ThemedText>

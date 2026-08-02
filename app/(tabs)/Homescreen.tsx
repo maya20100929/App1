@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
 import { Picker } from '@react-native-picker/picker';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   addDoc,
@@ -26,9 +26,10 @@ import {
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
-import { getSubjects } from '../../lib/subjectStore';
+import { getSubjectSettings, type SubjectSetting } from '../../lib/subjectStore';
 
 const HomeScreen: FC = () => {
+  const params = useLocalSearchParams<{ attack?: string; attackGoal?: string; attackDuration?: string }>();
 
   type Task = {
     id: string;
@@ -37,6 +38,7 @@ const HomeScreen: FC = () => {
     date: string;
     archived?: boolean;
     subject?: Subject;
+    category?: string;
     material?: string;
     amount?: number;
     unit?: string;
@@ -78,6 +80,7 @@ const HomeScreen: FC = () => {
   const newTaskInputRef = React.useRef<TextInput | null>(null);
   const [previousMessages, setPreviousMessages] = useState<Task[]>([]);
   const [subject, setSubject] = useState<Subject>('数学');
+  const [category, setCategory] = useState('');
   const [material, setMaterial] = useState('');
   const [customMaterial, setCustomMaterial] = useState('');
   const [customPointRate, setCustomPointRate] = useState('1');
@@ -89,7 +92,20 @@ const HomeScreen: FC = () => {
   const [allMaterials, setAllMaterials] = useState<{ name: string; rate: number }[]>([]);
   const [unitOptions, setUnitOptions] = useState<{ unit: string; pointPerUnit: number }[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectSettings, setSubjectSettings] = useState<SubjectSetting[]>([]);
   const [dayBoundaryTick, setDayBoundaryTick] = useState(0);
+  const [isAttackRecordMode, setIsAttackRecordMode] = useState(false);
+
+  useEffect(() => {
+    if (params.attack !== '1') return;
+
+    setRecordingTaskId(null);
+    setRecordModalTab('record');
+    setContent(params.attackGoal ?? 'タイムアタック');
+    setDurationMinutes(params.attackDuration ?? '');
+    setIsAttackRecordMode(true);
+    setIsRecordModalVisible(true);
+  }, [params.attack, params.attackGoal, params.attackDuration]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -101,8 +117,18 @@ const HomeScreen: FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      getSubjects().then(setSubjects).catch(error => console.error('Homescreen load subjects failed', error));
+      getSubjectSettings()
+        .then(settings => {
+          setSubjectSettings(settings);
+          setSubjects(settings.map(item => item.name));
+        })
+        .catch(error => console.error('Homescreen load subjects failed', error));
     }, [])
+  );
+
+  const categories = useMemo(
+    () => subjectSettings.find(item => item.name === subject)?.categories ?? [],
+    [subject, subjectSettings]
   );
 
   // 日付をまたいだら一覧を再判定し、前日までに完了したタスクを表示から外す。
@@ -446,6 +472,7 @@ console.log(
       date: dateStr,
       archived: false,
       subject,
+      ...(category ? { category } : {}),
       material: actualMaterial,
       ...(hasAmount ? { amount: numericAmount, unit: selectedUnit } : {}),
       ...(hasAmount && difficulty ? { difficulty } : {}),
@@ -459,6 +486,7 @@ console.log(
       setCustomPointRate('1');
       setAmount('');
       setDifficulty('');
+      setCategory('');
       setIsRecordModalVisible(false);
       console.log('Homescreen: saved modal task locally');
       return;
@@ -473,6 +501,7 @@ console.log(
         date: dateStr,
         archived: false,
         subject,
+        ...(category ? { category } : {}),
         material: actualMaterial,
         ...(hasAmount ? { amount: numericAmount, unit: selectedUnit } : {}),
         ...(hasAmount && difficulty ? { difficulty } : {}),
@@ -484,6 +513,7 @@ console.log(
       setCustomPointRate('1');
       setAmount('');
       setDifficulty('');
+      setCategory('');
       setIsRecordModalVisible(false);
       console.log('Homescreen: modal add task succeeded');
     } catch (e: unknown) {
@@ -519,6 +549,7 @@ console.log(
     id: string,
     record: {
       subject: Subject;
+      category?: string;
       material: string;
       content: string;
       amount: number;
@@ -531,6 +562,7 @@ console.log(
       done: true,
       text: record.content || `${record.material} ${record.amount}${record.unit}`,
       subject: record.subject,
+      ...(record.category ? { category: record.category } : {}),
       material: record.material,
       amount: record.amount,
       unit: record.unit,
@@ -560,6 +592,7 @@ console.log(
   const addCompletedTaskFromRecord = useCallback(async (
     record: {
       subject: Subject;
+      category?: string;
       material: string;
       content: string;
       amount: number;
@@ -577,6 +610,7 @@ console.log(
       date: dateStr,
       archived: false,
       subject: record.subject,
+      ...(record.category ? { category: record.category } : {}),
       material: record.material,
       amount: record.amount,
       unit: record.unit,
@@ -595,6 +629,7 @@ console.log(
       date: dateStr,
       archived: false,
       subject: record.subject,
+      ...(record.category ? { category: record.category } : {}),
       material: record.material,
       amount: record.amount,
       unit: record.unit,
@@ -622,6 +657,7 @@ console.log(
       const record = {
         date: new Date().toISOString().slice(0, 10),
         subject,
+        ...(category ? { category } : {}),
         material: actualMaterial,
         content: content.trim(),
         amount: numericAmount,
@@ -644,7 +680,7 @@ console.log(
         await addCompletedTaskFromRecord(record);
       }
 
-      Alert.alert('保存しました', `${subject} / ${actualMaterial}\n${amount}${selectedUnit} → ${point} pt`);
+      Alert.alert('保存しました', `${subject}${category ? `（${category}）` : ''} / ${actualMaterial}\n${amount}${selectedUnit} → ${point} pt`);
 
       setMaterial('');
       setCustomMaterial('');
@@ -653,20 +689,23 @@ console.log(
       setAmount('');
       setDurationMinutes('');
       setDifficulty('');
+      setCategory('');
       setSelectedUnit(unitOptions[0]?.unit ?? '');
       setRecordingTaskId(null);
+      setIsAttackRecordMode(false);
       await loadMaterials();
       setIsRecordModalVisible(false);
     } catch (error) {
       console.error('Homescreen handleRecordSave failed', error);
       Alert.alert('エラー', '記録の保存に失敗しました。');
     }
-  }, [subject, material, customMaterial, customPointRate, content, amount, durationMinutes, selectedUnit, point, difficulty, recordingTaskId, completeTaskAfterRecord, addCompletedTaskFromRecord, unitOptions, loadMaterials]);
+  }, [subject, category, material, customMaterial, customPointRate, content, amount, durationMinutes, selectedUnit, point, difficulty, recordingTaskId, completeTaskAfterRecord, addCompletedTaskFromRecord, unitOptions, loadMaterials]);
 
   const openRecordFromTask = useCallback((task: Task) => {
     if (task.subject) {
       setSubject(task.subject);
     }
+    setCategory(task.category ?? '');
     setRecordingTaskId(task.id);
     setRecordModalTab('record');
     setMaterial(task.material ?? '');
@@ -716,7 +755,6 @@ console.log(
     const taskTitle = task.material || task.text;
     const taskAmount = task.amount ? `${task.amount}${task.unit ?? ''}` : '';
     const difficultyLabel = task.difficulty === '2' ? '★★' : task.difficulty === '3' ? '★★★' : '';
-    const taskDuration = task.durationMinutes ? `時間：${task.durationMinutes}分` : '';
 
     useEffect(() => {
       if (!shouldAnimate) {
@@ -774,9 +812,9 @@ console.log(
               終了：{taskAmount}
             </ThemedText>
           )}
-          {(taskDuration || difficultyLabel) && (
+          {difficultyLabel && (
             <ThemedText style={styles.taskDetailText}>
-              {taskDuration}{taskDuration && difficultyLabel ? '　' : ''}{difficultyLabel}
+              {difficultyLabel}
             </ThemedText>
           )}
         </TouchableOpacity>
@@ -1015,6 +1053,7 @@ console.log(
   const closeRecordModal = () => {
     setIsRecordModalVisible(false);
     setRecordingTaskId(null);
+    setIsAttackRecordMode(false);
   };
 
   const renderRecordModal = () => (
@@ -1032,7 +1071,7 @@ console.log(
               <ThemedText style={styles.modalCloseText}>×</ThemedText>
             </TouchableOpacity>
           </View>
-          {!recordingTaskId && (
+          {!recordingTaskId && !isAttackRecordMode && (
             <View style={styles.modalTabRow}>
               <TouchableOpacity
                 style={[styles.modalTab, recordModalTab === 'todo' && styles.modalTabActive]}
@@ -1051,12 +1090,26 @@ console.log(
           <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalContentInner}>
             <ThemedText style={styles.label}>{recordModalTab === 'todo' ? '科目' : '科目'}</ThemedText>
             <View style={styles.pickerWrapper}>
-              <Picker selectedValue={subject} onValueChange={setSubject}>
+              <Picker selectedValue={subject} onValueChange={value => { setSubject(value); setCategory(''); }}>
                 {subjects.map(item => (
                   <Picker.Item key={item} label={item} value={item} />
                 ))}
               </Picker>
             </View>
+
+            {categories.length > 0 && (
+              <>
+                <ThemedText style={styles.label}>分類</ThemedText>
+                <View style={styles.pickerWrapper}>
+                  <Picker selectedValue={category} onValueChange={setCategory}>
+                    <Picker.Item label="選択しない" value="" />
+                    {categories.map(item => (
+                      <Picker.Item key={item} label={item} value={item} />
+                    ))}
+                  </Picker>
+                </View>
+              </>
+            )}
 
             <ThemedText style={styles.label}>教材</ThemedText>
             <View style={styles.pickerWrapper}>

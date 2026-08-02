@@ -1,12 +1,19 @@
 import { ThemedText } from '@/components/themed-text';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+};
+
+const toRecordedMinutes = (elapsedSeconds: number) => {
+  if (elapsedSeconds < 60) return 1;
+  const wholeMinutes = Math.floor(elapsedSeconds / 60);
+  return wholeMinutes + (elapsedSeconds % 60 >= 30 ? 1 : 0);
 };
 
 export default function AttackScreen() {
@@ -17,19 +24,37 @@ export default function AttackScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const [goal, setGoal] = useState('');
   const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const [isCompletionVisible, setIsCompletionVisible] = useState(false);
+  const [completedDurationMinutes, setCompletedDurationMinutes] = useState(0);
+  const hasFinishedRef = useRef(false);
+  const completionScale = useRef(new Animated.Value(0.6)).current;
   const minuteOptions = Array.from({ length: 180 }, (_, index) => index + 1);
+
+  const showCompletion = useCallback((durationMinutes: number) => {
+    setCompletedDurationMinutes(durationMinutes);
+    setIsCompletionVisible(true);
+    completionScale.setValue(0.6);
+    Animated.sequence([
+      Animated.spring(completionScale, { toValue: 1.12, useNativeDriver: true, friction: 5 }),
+      Animated.timing(completionScale, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+  }, [completionScale]);
 
   useEffect(() => {
     if (!isRunning) return;
     const interval = setInterval(() => setSeconds(value => {
       if (value <= 1) {
         setIsRunning(false);
+        if (!hasFinishedRef.current) {
+          hasFinishedRef.current = true;
+          showCompletion(minutes);
+        }
         return 0;
       }
       return value - 1;
     }), 1000);
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isRunning, minutes, showCompletion]);
 
   // アタック中だけ自動スリープを防ぎ、停止・終了時には通常の設定に戻す。
   useEffect(() => {
@@ -81,7 +106,15 @@ export default function AttackScreen() {
       </TouchableOpacity>
       {isConfigured && (
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.resetButton} onPress={() => { setIsRunning(false); setSeconds(0); setIsConfigured(false); }}>
+          <TouchableOpacity style={styles.endButton} onPress={() => {
+            const elapsedMinutes = toRecordedMinutes(minutes * 60 - seconds);
+            hasFinishedRef.current = true;
+            setIsRunning(false);
+            showCompletion(elapsedMinutes);
+          }}>
+            <ThemedText style={styles.endButtonText}>終了</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.resetButton} onPress={() => { hasFinishedRef.current = false; setIsRunning(false); setSeconds(0); setIsConfigured(false); }}>
             <ThemedText style={styles.resetButtonText}>リセット</ThemedText>
           </TouchableOpacity>
         </View>
@@ -116,11 +149,30 @@ export default function AttackScreen() {
             </View>
             <View style={styles.pickerActions}>
               <TouchableOpacity style={styles.pickerCancel} onPress={() => setIsPickerVisible(false)}><ThemedText style={styles.pickerCancelText}>キャンセル</ThemedText></TouchableOpacity>
-              <TouchableOpacity style={styles.pickerDone} onPress={() => { setMinutes(draftMinutes); setSeconds(draftMinutes * 60); setIsConfigured(true); setIsRunning(true); setIsPickerVisible(false); }}><ThemedText style={styles.pickerDoneText}>決定して開始</ThemedText></TouchableOpacity>
+              <TouchableOpacity style={styles.pickerDone} onPress={() => { hasFinishedRef.current = false; setMinutes(draftMinutes); setSeconds(draftMinutes * 60); setIsConfigured(true); setIsRunning(true); setIsPickerVisible(false); }}><ThemedText style={styles.pickerDoneText}>決定して開始</ThemedText></TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+      {isCompletionVisible && (
+        <TouchableOpacity
+          style={styles.completionOverlay}
+          activeOpacity={0.9}
+          onPress={() => router.push({
+            pathname: '/Homescreen',
+            params: {
+              attack: '1',
+              attackGoal: goal.trim() || 'タイムアタック',
+              attackDuration: String(completedDurationMinutes),
+            },
+          })}
+        >
+          <Animated.View style={[styles.completionBadge, { transform: [{ scale: completionScale }] }]}>
+            <ThemedText style={styles.completionText}>終了！</ThemedText>
+            <ThemedText style={styles.completionHint}>タップして記録する</ThemedText>
+          </Animated.View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -144,7 +196,9 @@ const styles = StyleSheet.create({
   playIcon: { color: '#fff', fontSize: 46, marginLeft: 6 },
   timerHint: { color: '#a48f8b', marginTop: 8, fontSize: 13 },
   pauseHint: { position: 'absolute', bottom: 28, color: '#a88f89', fontSize: 13, fontWeight: '600' },
-  actions: { marginTop: 24 },
+  actions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24 },
+  endButton: { backgroundColor: '#ff8e72', borderRadius: 16, paddingVertical: 11, paddingHorizontal: 24 },
+  endButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   resetButton: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 16 },
   resetButtonText: { color: '#b8aaa7', fontWeight: '600', fontSize: 13 },
   modalOverlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(65, 40, 45, 0.35)' },
@@ -161,4 +215,8 @@ const styles = StyleSheet.create({
   pickerCancelText: { color: '#786a78', fontWeight: '700' },
   pickerDone: { backgroundColor: '#ff8e72', borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12 },
   pickerDoneText: { color: '#fff', fontWeight: '800' },
+  completionOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 248, 245, 0.72)', zIndex: 10 },
+  completionBadge: { backgroundColor: '#ff8e72', borderRadius: 32, paddingVertical: 28, paddingHorizontal: 42, shadowColor: '#b14f3a', shadowOpacity: 0.25, shadowRadius: 16, elevation: 8 },
+  completionText: { color: '#fff', fontSize: 38, fontWeight: '900' },
+  completionHint: { color: '#fff', fontSize: 13, marginTop: 8, textAlign: 'center' },
 });

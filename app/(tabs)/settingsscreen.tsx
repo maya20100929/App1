@@ -15,7 +15,7 @@ import {
   View
 } from 'react-native';
 import { getUnitPointRulesBySubject, saveUnitPointRule } from '../../lib/recordStore';
-import { addSubject, deleteSubject, getSubjectSettings, updateSubject, type SubjectSetting } from '../../lib/subjectStore';
+import { addSubject, addSubjectCategory, deleteSubject, deleteSubjectCategory, getSubjectSettings, updateSubject, type SubjectSetting } from '../../lib/subjectStore';
 
 export default function SettingsScreen() {
   const [searchText, setSearchText] = useState('');
@@ -38,6 +38,8 @@ export default function SettingsScreen() {
   const [newSubjectColor, setNewSubjectColor] = useState('#6C7BFA');
   const [editingSubject, setEditingSubject] = useState<string | null>(null);
   const [editingSubjectName, setEditingSubjectName] = useState('');
+  const [expandedCategorySubject, setExpandedCategorySubject] = useState<string | null>(null);
+  const [newCategory, setNewCategory] = useState('');
   const [graphColor, setGraphColor] = useState('#6C7BFA');
   const unitOptions = ['問', 'ページ', '語', 'セット', '分', 'その他'];  // 単位選択肢
 
@@ -130,6 +132,16 @@ export default function SettingsScreen() {
     const updated = await deleteSubject(name);
     setSubjects(updated);
     if (selectedSubject === name) setSelectedSubject(updated[0]?.name ?? '');
+  };
+
+  const handleAddCategory = async (subjectName: string) => {
+    const updated = await addSubjectCategory(subjectName, newCategory);
+    setSubjects(updated);
+    setNewCategory('');
+  };
+
+  const handleDeleteCategory = async (subjectName: string, categoryName: string) => {
+    setSubjects(await deleteSubjectCategory(subjectName, categoryName));
   };
 
   const handleSelectGraphColor = async (color: string) => {
@@ -325,40 +337,109 @@ export default function SettingsScreen() {
         if (item.type === 'subject') {
           return (
             <View key={index}>
-              <ThemedText style={styles.sectionTitle}>{item.label}</ThemedText>
+              <ThemedText style={styles.sectionTitle}>{item.section}</ThemedText>
               <View style={styles.box}>
-                <View style={styles.addSubjectRow}>
-                  <TextInput
-                    style={[styles.searchInput, styles.addSubjectInput]}
-                    placeholder="例：音楽、副教科"
-                    value={newSubject}
-                    onChangeText={setNewSubject}
-                  />
-                  <TouchableOpacity style={styles.modalButton} onPress={handleAddSubject}>
-                    <ThemedText style={styles.modalButtonText}>追加</ThemedText>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.colorRow}>
-                  {themeColors.map(color => (
-                    <TouchableOpacity key={color} style={[styles.colorDot, { backgroundColor: color }, newSubjectColor === color && styles.selectedDot]} onPress={() => setNewSubjectColor(color)} />
-                  ))}
-                </View>
-                {subjects.map(subject => (
-                  <View key={subject.name} style={styles.subjectSettingRow}>
-                    {editingSubject === subject.name ? (
-                      <TextInput style={[styles.searchInput, styles.addSubjectInput]} value={editingSubjectName} onChangeText={setEditingSubjectName} />
-                    ) : (
-                      <ThemedText style={styles.subjectName}>{subject.name}</ThemedText>
-                    )}
-                    {themeColors.map(color => (
-                      <TouchableOpacity key={color} style={[styles.smallColorDot, { backgroundColor: color }, subject.color === color && styles.selectedDot]} onPress={() => changeSubjectColor(subject, color)} />
-                    ))}
-                    <TouchableOpacity onPress={() => editingSubject === subject.name ? saveSubjectEdit(subject) : (setEditingSubject(subject.name), setEditingSubjectName(subject.name))}>
-                      <ThemedText style={styles.subjectAction}>{editingSubject === subject.name ? '保存' : '編集'}</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => removeSubject(subject.name)}><ThemedText style={styles.deleteSubject}>削除</ThemedText></TouchableOpacity>
+                <View style={styles.subjectTable}>
+                  <View style={[styles.subjectTableRow, styles.subjectTableHeader]}>
+                    <ThemedText style={[styles.subjectTableHeaderText, styles.subjectNameCell]}>科目名</ThemedText>
+                    <ThemedText style={[styles.subjectTableHeaderText, styles.subjectColorCell]}>色の選択</ThemedText>
                   </View>
-                ))}
+                  {subjects.map(subject => (
+                    <React.Fragment key={subject.name}>
+                    <View style={styles.subjectTableRow}>
+                      <View style={styles.subjectNameCell}>
+                        {editingSubject === subject.name ? (
+                          <TextInput
+                            style={styles.subjectNameInput}
+                            value={editingSubjectName}
+                            onChangeText={setEditingSubjectName}
+                          />
+                        ) : (
+                          <ThemedText style={styles.subjectName}>{subject.name}</ThemedText>
+                        )}
+                        <View style={styles.subjectActions}>
+                          <TouchableOpacity onPress={() => editingSubject === subject.name ? saveSubjectEdit(subject) : (setEditingSubject(subject.name), setEditingSubjectName(subject.name))}>
+                            <ThemedText style={styles.subjectAction}>{editingSubject === subject.name ? '保存' : '編集'}</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => removeSubject(subject.name)}>
+                            <ThemedText style={styles.deleteSubject}>削除</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.categorySettingsButton}
+                          onPress={() => {
+                            setExpandedCategorySubject(expandedCategorySubject === subject.name ? null : subject.name);
+                            setNewCategory('');
+                          }}
+                        >
+                          <ThemedText style={styles.categorySettingsText}>
+                            {expandedCategorySubject === subject.name ? '分類を閉じる' : '分類を設定'}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                      <View style={[styles.subjectColorCell, styles.subjectColorChoices]}>
+                        {themeColors.map(color => (
+                          <TouchableOpacity
+                            key={color}
+                            accessibilityLabel={`${subject.name}の色を選択`}
+                            style={[styles.smallColorDot, { backgroundColor: color }, subject.color === color && styles.selectedDot]}
+                            onPress={() => changeSubjectColor(subject, color)}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    {expandedCategorySubject === subject.name && (
+                      <View style={styles.categoryPanel}>
+                        <ThemedText style={styles.categoryPanelTitle}>{subject.name}の分類</ThemedText>
+                        {subject.categories.map(category => (
+                          <View key={category} style={styles.categoryRow}>
+                            <ThemedText style={styles.categoryName}>{category}</ThemedText>
+                            <TouchableOpacity onPress={() => handleDeleteCategory(subject.name, category)}>
+                              <ThemedText style={styles.deleteSubject}>削除</ThemedText>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                        <View style={styles.categoryAddRow}>
+                          <TextInput
+                            style={styles.categoryInput}
+                            placeholder="例：数学I、数学A"
+                            placeholderTextColor="#9b92a7"
+                            value={newCategory}
+                            onChangeText={setNewCategory}
+                          />
+                          <TouchableOpacity style={styles.addSubjectButton} onPress={() => handleAddCategory(subject.name)}>
+                            <ThemedText style={styles.addSubjectButtonText}>行を追加</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                    </React.Fragment>
+                  ))}
+                  <View style={[styles.subjectTableRow, styles.addSubjectTableRow]}>
+                    <View style={styles.subjectNameCell}>
+                      <TextInput
+                        style={styles.subjectNameInput}
+                        placeholder="例：音楽"
+                        placeholderTextColor="#9b92a7"
+                        value={newSubject}
+                        onChangeText={setNewSubject}
+                      />
+                    </View>
+                    <View style={[styles.subjectColorCell, styles.subjectColorChoices]}>
+                      {themeColors.map(color => (
+                        <TouchableOpacity
+                          key={color}
+                          accessibilityLabel="追加する科目の色を選択"
+                          style={[styles.smallColorDot, { backgroundColor: color }, newSubjectColor === color && styles.selectedDot]}
+                          onPress={() => setNewSubjectColor(color)}
+                        />
+                      ))}
+                      <TouchableOpacity style={styles.addSubjectButton} onPress={handleAddSubject}>
+                        <ThemedText style={styles.addSubjectButtonText}>追加</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
               </View>
             </View>
           );
@@ -649,13 +730,30 @@ const styles = StyleSheet.create({
   },
 
   boxText: { fontSize: 16, color: '#aaacf5ff' },
-  addSubjectRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-  addSubjectInput: { flex: 1, marginBottom: 0 },
-  subjectSettingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#eee' },
-  subjectName: { flex: 1, fontSize: 16, color: '#5b2f6f' },
-  smallColorDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#ddd' },
-  subjectAction: { color: '#6C7BFA', fontWeight: '700', marginLeft: 4 },
-  deleteSubject: { color: '#d85f45', fontWeight: '700', marginLeft: 4 },
+  subjectTable: { borderWidth: 1, borderColor: '#e5dbef', borderRadius: 12, overflow: 'hidden' },
+  subjectTableRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#e5dbef', backgroundColor: '#fff' },
+  subjectTableHeader: { borderTopWidth: 0, backgroundColor: '#f7f4ff' },
+  addSubjectTableRow: { backgroundColor: '#fcfbff' },
+  subjectNameCell: { flex: 1, padding: 12, borderRightWidth: 1, borderRightColor: '#e5dbef', justifyContent: 'center' },
+  subjectColorCell: { flex: 1.15, padding: 12, justifyContent: 'center' },
+  subjectTableHeaderText: { fontSize: 14, fontWeight: '700', color: '#5b2f6f' },
+  subjectName: { fontSize: 16, color: '#5b2f6f' },
+  subjectNameInput: { borderWidth: 1, borderColor: '#aaacf5ff', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, fontSize: 16, color: '#5b2f6f', fontFamily: Fonts.rounded },
+  subjectActions: { flexDirection: 'row', marginTop: 6 },
+  categorySettingsButton: { alignSelf: 'flex-start', marginTop: 8 },
+  categorySettingsText: { color: '#6C7BFA', fontSize: 13, fontWeight: '700' },
+  categoryPanel: { padding: 12, backgroundColor: '#fcfbff', borderTopWidth: 1, borderTopColor: '#e5dbef' },
+  categoryPanelTitle: { fontSize: 14, fontWeight: '700', color: '#5b2f6f', marginBottom: 6 },
+  categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee9f5' },
+  categoryName: { fontSize: 15, color: '#5b2f6f' },
+  categoryAddRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
+  categoryInput: { flex: 1, borderWidth: 1, borderColor: '#aaacf5ff', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8, fontSize: 14, color: '#5b2f6f', fontFamily: Fonts.rounded },
+  smallColorDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#ddd', marginRight: 7, marginVertical: 3 },
+  subjectColorChoices: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  addSubjectButton: { backgroundColor: '#aaacf5ff', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginLeft: 2, marginVertical: 3 },
+  addSubjectButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  subjectAction: { color: '#6C7BFA', fontWeight: '700', marginRight: 12 },
+  deleteSubject: { color: '#d85f45', fontWeight: '700' },
   itemButton: {
     paddingVertical: 12,
   },

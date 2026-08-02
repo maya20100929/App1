@@ -68,7 +68,9 @@ export default function MaterialDetailScreen() {
               <View style={styles.entriesBox}>
                 {entries.map((entry) => (
                   <View key={entry.id} style={styles.entryItem}>
-                    <ThemedText style={styles.entrySubject}>{entry.subject}</ThemedText>
+                    <ThemedText style={styles.entrySubject}>
+                      {entry.subject}{entry.category ? `（${entry.category}）` : ''}
+                    </ThemedText>
                     <ThemedText style={styles.entryContent}>{entry.content}</ThemedText>
                     <ThemedText style={styles.entryAmount}>{entry.amount} {entry.unit} → {entry.point} pt</ThemedText>
                     <ThemedText style={styles.entryDate}>{entry.date}</ThemedText>
