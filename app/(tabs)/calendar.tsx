@@ -1,9 +1,10 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { ThemedText } from '@/components/themed-text';
 import { router } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, doc, getDocs, onSnapshot } from 'firebase/firestore';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 import { getAllRecords, getRecordsByDate, type StudyRecord } from '../../lib/recordStore';
 
@@ -14,7 +15,10 @@ export default function CalendarScreen() {
   type CalendarEvent = {
     id: string;
     title: string;
-    date: string;
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    memo?: string;
     type: 'テスト' | '模試' | '学校' | 'その他';
   };
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -31,8 +35,15 @@ export default function CalendarScreen() {
   const [showInput, setShowInput] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [eventTitle, setEventTitle] = useState('');
+  const [eventMemo, setEventMemo] = useState('');
+  const [eventStartDate, setEventStartDate] = useState(selectedDate);
+  const [eventEndDate, setEventEndDate] = useState(selectedDate);
+  const [pickerTarget, setPickerTarget] = useState<'start' | 'end' | null>(null);
+  const [datePickerValue, setDatePickerValue] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [eventType, setEventType] =
     useState<'テスト' | '模試' | '学校' | 'その他'>('テスト');
+  const webInputRef = useRef<HTMLInputElement | null>(null);
 
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
@@ -71,7 +82,11 @@ export default function CalendarScreen() {
       }));
 
       setAllEvents(savedEvents);
-      setEvents(savedEvents.filter((event) => event.date === selectedDate));
+      setEvents(savedEvents.filter((event) => {
+        const start = event.startDate || event.date || selectedDate;
+        const end = event.endDate || start;
+        return selectedDate >= start && selectedDate <= end;
+      }));
     };
 
     loadEvents();
@@ -121,10 +136,117 @@ export default function CalendarScreen() {
     setTasks(savedTasks.filter(task => task.date === selectedDate));
   };
 
+  const openEventModal = () => {
+    setEventTitle('');
+    setEventMemo('');
+    setEventStartDate(selectedDate);
+    setEventEndDate(selectedDate);
+    setPickerTarget(null);
+    setModalVisible(true);
+  };
 
+  const openDatePicker = (target: 'start' | 'end') => {
+    const baseDate = target === 'start' ? eventStartDate : eventEndDate;
+    setPickerTarget(target);
 
+    if (Platform.OS === 'web') {
+      webInputRef.current?.showPicker?.();
+      webInputRef.current?.focus();
+      return;
+    }
 
+    const parsed = new Date(`${baseDate || selectedDate}T12:00:00`);
+    setDatePickerValue(Number.isNaN(parsed.getTime()) ? new Date() : parsed);
+    setShowDatePicker(true);
+  };
 
+  const onSelectDate = (_event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (!date || !pickerTarget) return;
+
+    const value = dateKey(date);
+    if (pickerTarget === 'start') {
+      setEventStartDate(current => {
+        const nextStart = value;
+        setEventEndDate(currentEnd => (currentEnd < nextStart ? nextStart : currentEnd));
+        return nextStart;
+      });
+    } else {
+      setEventEndDate(current => {
+        const nextEnd = value;
+        setEventStartDate(currentStart => (currentStart > nextEnd ? nextEnd : currentStart));
+        return nextEnd;
+      });
+    }
+    setPickerTarget(null);
+  };
+
+  const onWebDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    if (!value || !pickerTarget) return;
+
+    if (pickerTarget === 'start') {
+      setEventStartDate(value);
+      if (eventEndDate < value) {
+        setEventEndDate(value);
+      }
+    } else {
+      setEventEndDate(value);
+      if (eventStartDate > value) {
+        setEventStartDate(value);
+      }
+    }
+
+    setPickerTarget(null);
+  };
+
+  const saveEvent = async () => {
+    if (!user) return;
+
+    const title = eventTitle.trim();
+    const memo = eventMemo.trim();
+
+    if (!title) {
+      Alert.alert('入力不足', '予定名を入力してください');
+      return;
+    }
+
+    const startDate = eventStartDate || selectedDate;
+    const endDate = eventEndDate || startDate;
+
+    if (endDate < startDate) {
+      Alert.alert('入力不足', '開始日を終わり日より前にしてください');
+      return;
+    }
+
+    await addDoc(collection(db, 'users', user.uid, 'events'), {
+      title,
+      startDate,
+      endDate,
+      date: startDate,
+      type: 'その他',
+      memo,
+      createdAt: new Date().toISOString(),
+    });
+
+    setModalVisible(false);
+    setEventTitle('');
+    setEventMemo('');
+    setEventStartDate(selectedDate);
+    setEventEndDate(selectedDate);
+
+    const snapshot = await getDocs(collection(db, 'users', user.uid, 'events'));
+    const savedEvents: CalendarEvent[] = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<CalendarEvent, 'id'>),
+    }));
+    setAllEvents(savedEvents);
+    setEvents(savedEvents.filter((event) => {
+      const start = event.startDate || event.date || selectedDate;
+      const end = event.endDate || start;
+      return selectedDate >= start && selectedDate <= end;
+    }));
+  };
 
   return <ScrollView style={styles.container} contentContainerStyle={styles.content}>
     <View style={styles.monthRow}>
@@ -159,19 +281,7 @@ export default function CalendarScreen() {
 
       <TouchableOpacity
         style={styles.addButton}
-
-        onPress={() =>
-          setModalVisible(true)
-        }
-      >
-        <ThemedText style={styles.addButtonText}>
-          ＋ この日に予定を追加
-        </ThemedText>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => setShowInput(!showInput)}
+        onPress={openEventModal}
       >
         <ThemedText style={styles.addButtonText}>
           ＋予定を追加
@@ -201,7 +311,6 @@ export default function CalendarScreen() {
       <ThemedText style={styles.detailTitle}>
         {selectedDate}
       </ThemedText>
-      <ThemedText style={styles.detailTitle}>{selectedDate}</ThemedText>
       {selectedDate === testDate && <TouchableOpacity style={styles.testLink} onPress={() => router.push('/testrecord')}><ThemedText style={styles.testLinkText}>テスト予定を見る</ThemedText></TouchableOpacity>}
 
       {!isFuture && (
@@ -244,6 +353,79 @@ export default function CalendarScreen() {
         </>
       )}
     </View>
+
+    <Modal
+      visible={modalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <ThemedText style={styles.modalTitle}>予定を追加</ThemedText>
+
+          <ThemedText style={styles.fieldLabel}>開始日</ThemedText>
+          <TouchableOpacity style={styles.dateButton} onPress={() => openDatePicker('start')}>
+            <ThemedText style={styles.dateButtonText}>{eventStartDate || '開始日を選択'}</ThemedText>
+          </TouchableOpacity>
+          {Platform.OS === 'web' && (
+            <input
+              ref={webInputRef}
+              type="date"
+              onChange={onWebDateChange}
+              style={{ display: 'none' }}
+            />
+          )}
+
+          <ThemedText style={styles.fieldLabel}>終了日</ThemedText>
+          <TouchableOpacity style={styles.dateButton} onPress={() => openDatePicker('end')}>
+            <ThemedText style={styles.dateButtonText}>{eventEndDate || '終了日を選択'}</ThemedText>
+          </TouchableOpacity>
+
+          <ThemedText style={styles.fieldLabel}>予定名</ThemedText>
+          <TextInput
+            style={styles.input}
+            value={eventTitle}
+            onChangeText={setEventTitle}
+            placeholder="例: 期末テスト"
+            placeholderTextColor="#999"
+          />
+
+          <ThemedText style={styles.fieldLabel}>メモ</ThemedText>
+          <TextInput
+            style={[styles.input, styles.memoInput]}
+            value={eventMemo}
+            onChangeText={setEventMemo}
+            placeholder="メモを入力"
+            placeholderTextColor="#999"
+            multiline
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+              <ThemedText style={styles.cancelButtonText}>キャンセル</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveButton} onPress={saveEvent}>
+              <ThemedText style={styles.saveButtonText}>保存</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
+    {showDatePicker && (
+      <View style={styles.pickerOverlay} pointerEvents="box-none">
+        <View style={styles.pickerContainer}>
+          <DateTimePicker
+            value={datePickerValue}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'spinner'}
+            onChange={onSelectDate}
+            style={styles.dateTimePicker}
+          />
+        </View>
+      </View>
+    )}
   </ScrollView>;
 }
 
@@ -262,6 +444,39 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 15,
+  },
+  pickerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(26, 26, 26, 0.15)',
+    zIndex: 10,
+  },
+  pickerContainer: {
+    width: '92%',
+    maxWidth: 400,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateTimePicker: {
+    width: '100%',
+    minWidth: 320,
+    maxWidth: 360,
+    backgroundColor: '#fff',
+    alignSelf: 'center',
   },
   container: {
     flex: 1,
@@ -284,6 +499,96 @@ const styles = StyleSheet.create({
     fontSize: 23,
     fontWeight: '800',
     color: '#554a8e',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 20,
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#554a8e',
+    marginBottom: 12,
+  },
+
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#554a8e',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: '#d8d1f7',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    backgroundColor: '#fff',
+  },
+
+  dateButton: {
+    borderWidth: 1,
+    borderColor: '#d8d1f7',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    marginBottom: 10,
+  },
+
+  dateButtonText: {
+    color: '#554a8e',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  memoInput: {
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 18,
+    gap: 10,
+  },
+
+  cancelButton: {
+    backgroundColor: '#f0ecff',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+
+  cancelButtonText: {
+    color: '#554a8e',
+    fontWeight: '700',
+  },
+
+  saveButton: {
+    backgroundColor: '#6C7BFA',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 
   monthButton: {

@@ -5,24 +5,24 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
-  addDoc,
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  updateDoc
+    addDoc,
+    collection,
+    doc,
+    onSnapshot,
+    query,
+    updateDoc
 } from 'firebase/firestore';
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  Animated,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Alert,
+    Animated,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
@@ -1099,7 +1099,7 @@ console.log(
 
             {categories.length > 0 && (
               <>
-                <ThemedText style={styles.label}>分類</ThemedText>
+                <ThemedText style={styles.label}>細かい教科</ThemedText>
                 <View style={styles.pickerWrapper}>
                   <Picker selectedValue={category} onValueChange={setCategory}>
                     <Picker.Item label="選択しない" value="" />

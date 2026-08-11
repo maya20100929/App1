@@ -1,8 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
+import { useFocusEffect } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -15,9 +16,14 @@ import {
 import { Provider as PaperProvider } from 'react-native-paper';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { auth, db } from '../../lib/firebase';
+import { getSubjectSettings, type SubjectSetting } from '../../lib/subjectStore';
 
-type Subject = '数学' | '国語' | '理科' | '社会' | '英語';
-const subjects: Subject[] = ['数学', '国語', '理科', '社会', '英語'];
+type SubjectTab = {
+  id: string;
+  label: string;
+  color: string;
+  parentName: string;
+};
 
 type Todo = {
   id: string;
@@ -31,7 +37,8 @@ type SubjectData = {
 };
 
 export default function TestOverviewScreen() {
-  const [selectedSubject, setSelectedSubject] = useState<Subject>('数学');
+  const [selectedSubject, setSelectedSubject] = useState<string>('数学');
+  const [subjectTabs, setSubjectTabs] = useState<SubjectTab[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isGoalFocused, setIsGoalFocused] = useState(false);
   const [isDateFocused, setIsDateFocused] = useState(false);
@@ -195,18 +202,53 @@ useEffect(() => {
     return Math.ceil(diff);
   }, [testDate]);
 
-  const [subjectData, setSubjectData] = useState<Record<Subject, SubjectData>>({
-    数学: { memoText: '', todos: [] },
-    国語: { memoText: '', todos: [] },
-    理科: { memoText: '', todos: [] },
-    社会: { memoText: '', todos: [] },
-    英語: { memoText: '', todos: [] },
-  });
+  const [subjectData, setSubjectData] = useState<Record<string, SubjectData>>({});
 
   const { width } = useWindowDimensions();
   const isMobile = width <= 600;
 
-  const current = subjectData[selectedSubject];
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const settings = await getSubjectSettings();
+        const tabs = settings.flatMap(setting => {
+          const categories = (setting.categories ?? []).map(item => item.trim()).filter(Boolean);
+          if (categories.length > 0) {
+            return categories.map(category => ({
+              id: category,
+              label: category,
+              color: setting.color,
+              parentName: setting.name,
+            }));
+          }
+
+          return [{
+            id: setting.name,
+            label: setting.name,
+            color: setting.color,
+            parentName: setting.name,
+          }];
+        });
+
+        setSubjectTabs(tabs);
+        setSubjectData(prev => {
+          const next = { ...prev };
+          tabs.forEach(tab => {
+            if (!next[tab.id]) {
+              next[tab.id] = { memoText: '', todos: [] };
+            }
+          });
+          return next;
+        });
+
+        if (!tabs.some(tab => tab.id === selectedSubject)) {
+          setSelectedSubject(tabs[0]?.id ?? '');
+        }
+      })();
+    }, [selectedSubject])
+  );
+
+  const current = subjectData[selectedSubject] ?? { memoText: '', todos: [] };
 
   /* ===== 進捗 ===== */
   const totalTasks = current.todos.length;
@@ -359,26 +401,30 @@ onConfirm={({ date }) => {
       {/* 教科 + ボタン */}
       <View style={[styles.subjectRow, isMobile && styles.subjectRowMobile]}>
         <View style={styles.subjectTabs}>
-          {subjects.map(sub => (
-            <TouchableOpacity
-              key={sub}
-              style={[
-                styles.subjectTab,
-                selectedSubject === sub && styles.subjectTabActive,
-              ]}
-              onPress={() => setSelectedSubject(sub)}
-            >
-              <ThemedText
+          {subjectTabs.map(tab => {
+            const isActive = selectedSubject === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
                 style={[
-                  styles.subjectText,
-                  selectedSubject === sub &&
-                    styles.subjectTextActive,
+                  styles.subjectTab,
+                  isActive && styles.subjectTabActive,
+                  isActive && { backgroundColor: tab.color },
                 ]}
+                onPress={() => setSelectedSubject(tab.id)}
               >
-                {sub}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
+                <ThemedText
+                  style={[
+                    styles.subjectText,
+                    isActive && styles.subjectTextActive,
+                    isActive ? { color: '#fff' } : { color: tab.color },
+                  ]}
+                >
+                  {tab.label}
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 

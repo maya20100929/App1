@@ -5,17 +5,17 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Modal,
-  // Picker,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Modal,
+    // Picker,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { getUnitPointRulesBySubject, saveUnitPointRule } from '../../lib/recordStore';
-import { addSubject, addSubjectCategory, deleteSubject, deleteSubjectCategory, getSubjectSettings, updateSubject, type SubjectSetting } from '../../lib/subjectStore';
+import { addSubject, addSubjectCategory, deleteSubject, deleteSubjectCategory, getSubjectSettings, updateSubject, updateSubjectCategory, type SubjectSetting } from '../../lib/subjectStore';
 
 export default function SettingsScreen() {
   const [searchText, setSearchText] = useState('');
@@ -39,6 +39,8 @@ export default function SettingsScreen() {
   const [editingSubject, setEditingSubject] = useState<string | null>(null);
   const [editingSubjectName, setEditingSubjectName] = useState('');
   const [expandedCategorySubject, setExpandedCategorySubject] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<{ subjectName: string; categoryName: string } | null>(null);
+  const [editingCategoryValue, setEditingCategoryValue] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [graphColor, setGraphColor] = useState('#6C7BFA');
   const unitOptions = ['問', 'ページ', '語', 'セット', '分', 'その他'];  // 単位選択肢
@@ -135,13 +137,37 @@ export default function SettingsScreen() {
   };
 
   const handleAddCategory = async (subjectName: string) => {
-    const updated = await addSubjectCategory(subjectName, newCategory);
+    const trimmedCategory = newCategory.trim();
+    if (!trimmedCategory) {
+      Alert.alert('入力してください', '詳細を入力してください。');
+      return;
+    }
+
+    const updated = await addSubjectCategory(subjectName, trimmedCategory);
     setSubjects(updated);
     setNewCategory('');
   };
 
   const handleDeleteCategory = async (subjectName: string, categoryName: string) => {
     setSubjects(await deleteSubjectCategory(subjectName, categoryName));
+  };
+
+  const startEditingCategory = (subjectName: string, categoryName: string) => {
+    setEditingCategory({ subjectName, categoryName });
+    setEditingCategoryValue(categoryName);
+  };
+
+  const saveCategoryEdit = async (subjectName: string, categoryName: string) => {
+    const trimmed = editingCategoryValue.trim();
+    if (!trimmed) {
+      Alert.alert('入力してください', '詳細を入力してください。');
+      return;
+    }
+
+    const updated = await updateSubjectCategory(subjectName, categoryName, trimmed);
+    setSubjects(updated);
+    setEditingCategory(null);
+    setEditingCategoryValue('');
   };
 
   const handleSelectGraphColor = async (color: string) => {
@@ -373,7 +399,7 @@ export default function SettingsScreen() {
                           }}
                         >
                           <ThemedText style={styles.categorySettingsText}>
-                            {expandedCategorySubject === subject.name ? '分類を閉じる' : '分類を設定'}
+                            {expandedCategorySubject === subject.name ? '詳細を閉じる' : '詳細を追加'}
                           </ThemedText>
                         </TouchableOpacity>
                       </View>
@@ -390,19 +416,43 @@ export default function SettingsScreen() {
                     </View>
                     {expandedCategorySubject === subject.name && (
                       <View style={styles.categoryPanel}>
-                        <ThemedText style={styles.categoryPanelTitle}>{subject.name}の分類</ThemedText>
-                        {subject.categories.map(category => (
-                          <View key={category} style={styles.categoryRow}>
-                            <ThemedText style={styles.categoryName}>{category}</ThemedText>
-                            <TouchableOpacity onPress={() => handleDeleteCategory(subject.name, category)}>
-                              <ThemedText style={styles.deleteSubject}>削除</ThemedText>
-                            </TouchableOpacity>
-                          </View>
-                        ))}
+                        <ThemedText style={styles.categoryPanelTitle}>{subject.name}の詳細</ThemedText>
+                        {subject.categories.map(category => {
+                          const isEditing = editingCategory?.subjectName === subject.name && editingCategory?.categoryName === category;
+                          return (
+                            <View key={category} style={styles.categoryRow}>
+                              {isEditing ? (
+                                <TextInput
+                                  style={styles.categoryInput}
+                                  value={editingCategoryValue}
+                                  onChangeText={setEditingCategoryValue}
+                                  placeholder="例：数学Ⅰ"
+                                  placeholderTextColor="#9b92a7"
+                                />
+                              ) : (
+                                <ThemedText style={styles.categoryName}>{category}</ThemedText>
+                              )}
+                              <View style={styles.categoryActions}>
+                                {isEditing ? (
+                                  <TouchableOpacity onPress={() => saveCategoryEdit(subject.name, category)}>
+                                    <ThemedText style={styles.subjectAction}>保存</ThemedText>
+                                  </TouchableOpacity>
+                                ) : (
+                                  <TouchableOpacity onPress={() => startEditingCategory(subject.name, category)}>
+                                    <ThemedText style={styles.subjectAction}>編集</ThemedText>
+                                  </TouchableOpacity>
+                                )}
+                                <TouchableOpacity onPress={() => handleDeleteCategory(subject.name, category)}>
+                                  <ThemedText style={styles.deleteSubject}>削除</ThemedText>
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          );
+                        })}
                         <View style={styles.categoryAddRow}>
                           <TextInput
                             style={styles.categoryInput}
-                            placeholder="例：数学I、数学A"
+                            placeholder="例：数学Ⅰ、英語表現"
                             placeholderTextColor="#9b92a7"
                             value={newCategory}
                             onChangeText={setNewCategory}
@@ -743,8 +793,10 @@ const styles = StyleSheet.create({
   categorySettingsButton: { alignSelf: 'flex-start', marginTop: 8 },
   categorySettingsText: { color: '#6C7BFA', fontSize: 13, fontWeight: '700' },
   categoryPanel: { padding: 12, backgroundColor: '#fcfbff', borderTopWidth: 1, borderTopColor: '#e5dbef' },
-  categoryPanelTitle: { fontSize: 14, fontWeight: '700', color: '#5b2f6f', marginBottom: 6 },
+  categoryPanelTitle: { fontSize: 14, fontWeight: '700', color: '#5b2f6f', marginBottom: 4 },
+  categoryHelperText: { fontSize: 12, color: '#8b7fa0', marginBottom: 8 },
   categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee9f5' },
+  categoryActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   categoryName: { fontSize: 15, color: '#5b2f6f' },
   categoryAddRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
   categoryInput: { flex: 1, borderWidth: 1, borderColor: '#aaacf5ff', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8, fontSize: 14, color: '#5b2f6f', fontFamily: Fonts.rounded },

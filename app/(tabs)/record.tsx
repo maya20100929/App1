@@ -4,12 +4,12 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
 import { getSubjectSettings, type SubjectSetting } from '../../lib/subjectStore';
@@ -276,7 +276,7 @@ export default function RecordScreen() {
 
       {categories.length > 0 && (
         <>
-          <ThemedText style={styles.label}>分類</ThemedText>
+          <ThemedText style={styles.label}>細かい教科</ThemedText>
           <View style={styles.pickerWrapper}>
             <Picker selectedValue={category} onValueChange={setCategory}>
               <Picker.Item label="選択しない" value="" />

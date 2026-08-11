@@ -61,18 +61,42 @@ export async function addSubjectCategory(subjectName: string, categoryName: stri
   const category = categoryName.trim();
   const settings = await getSubjectSettings();
   if (!category) return settings;
-  return save(settings.map(subject =>
-    subject.name === subjectName && !subject.categories.includes(category)
-      ? { ...subject, categories: [...subject.categories, category] }
-      : subject
-  ));
+  return save(settings.map(subject => {
+    if (subject.name !== subjectName) return subject;
+    const normalizedCategories = subject.categories
+      .map(item => String(item).trim())
+      .filter(Boolean);
+    if (normalizedCategories.includes(category)) return subject;
+    return { ...subject, categories: [...normalizedCategories, category] };
+  }));
+}
+
+export async function updateSubjectCategory(subjectName: string, oldCategoryName: string, newCategoryName: string) {
+  const oldName = oldCategoryName.trim();
+  const newName = newCategoryName.trim();
+  const settings = await getSubjectSettings();
+  if (!oldName || !newName) return settings;
+
+  return save(settings.map(subject => {
+    if (subject.name !== subjectName) return subject;
+    const normalizedCategories = subject.categories
+      .map(item => String(item).trim())
+      .filter(Boolean);
+    if (!normalizedCategories.includes(oldName)) return subject;
+    if (normalizedCategories.includes(newName) && newName !== oldName) return subject;
+
+    return {
+      ...subject,
+      categories: normalizedCategories.map(item => item === oldName ? newName : item),
+    };
+  }));
 }
 
 export async function deleteSubjectCategory(subjectName: string, categoryName: string) {
   const settings = await getSubjectSettings();
   return save(settings.map(subject =>
     subject.name === subjectName
-      ? { ...subject, categories: subject.categories.filter(category => category !== categoryName) }
+      ? { ...subject, categories: subject.categories.filter(category => String(category).trim() !== categoryName.trim()) }
       : subject
   ));
 }
