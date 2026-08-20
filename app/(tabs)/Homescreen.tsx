@@ -5,28 +5,40 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
-    addDoc,
-    collection,
-    doc,
-    onSnapshot,
-    query,
-    updateDoc
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  updateDoc
 } from 'firebase/firestore';
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Alert,
+  Animated,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
 import { getSubjectSettings, type SubjectSetting } from '../../lib/subjectStore';
+
+// 日本時間の YYYY-MM-DD を取得
+const getJapanDateString = (date = new Date()) => {
+  return new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .format(date)
+    .replace(/\//g, '-');
+};
 
 const HomeScreen: FC = () => {
   const params = useLocalSearchParams<{ attack?: string; attackGoal?: string; attackDuration?: string }>();
@@ -131,24 +143,30 @@ const HomeScreen: FC = () => {
     [subject, subjectSettings]
   );
 
-  // 日付をまたいだら一覧を再判定し、前日までに完了したタスクを表示から外す。
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+  // 日本時間の日付が変わったら一覧を再判定する
+useEffect(() => {
+  let timer: ReturnType<typeof setTimeout>;
 
-    const scheduleNextMidnight = () => {
-      const now = new Date();
-      const nextMidnight = new Date(now);
-      nextMidnight.setHours(24, 0, 0, 0);
+  const scheduleNextJapanMidnight = () => {
+    const now = new Date();
 
-      timer = setTimeout(() => {
-        setDayBoundaryTick(tick => tick + 1);
-        scheduleNextMidnight();
-      }, nextMidnight.getTime() - now.getTime());
-    };
+    // 現在の日本時間の日付
+    const japanToday = getJapanDateString(now);
 
-    scheduleNextMidnight();
-    return () => clearTimeout(timer);
-  }, []);
+    // 翌日の日付を作る
+    const tomorrow = new Date(`${japanToday}T00:00:00+09:00`);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    timer = setTimeout(() => {
+      setDayBoundaryTick(tick => tick + 1);
+      scheduleNextJapanMidnight();
+    }, Math.max(1000, tomorrow.getTime() - now.getTime()));
+  };
+
+  scheduleNextJapanMidnight();
+
+  return () => clearTimeout(timer);
+}, []);
 
   // listen to tasks for current user
   useEffect(() => {
@@ -162,46 +180,46 @@ const HomeScreen: FC = () => {
       const all: Task[] = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
 
       console.log(
-  "取得件数",
-  snapshot.docs.length,
-  snapshot.docs.map(d => ({
-    id: d.id,
-    text: d.data().text,
-  }))
-);
+        "取得件数",
+        snapshot.docs.length,
+        snapshot.docs.map(d => ({
+          id: d.id,
+          text: d.data().text,
+        }))
+      );
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = getJapanDateString();
 
-      const todayArr: Task[] = [];
-      const pastArr: Task[] = [];
-      const archivedArr: Task[] = [];
+const todayArr: Task[] = [];
+const pastArr: Task[] = [];
+const archivedArr: Task[] = [];
 
-      all.forEach(t => {
-        if (t.archived) {
-          archivedArr.push(t);
-          return;
-        }
-        const td = new Date(t.date);
-        td.setHours(0, 0, 0, 0);
-        // 完了済みのタスクは当日だけ表示する。翌日以降は一覧に残さない。
-        if (t.done && td < today) {
-          return;
-        }
-        if (!t.done && td < today) {
-          pastArr.push(t);
-        } else {
-          todayArr.push(t);
-        }
-      });
+all.forEach(t => {
+  if (t.archived) {
+    archivedArr.push(t);
+    return;
+  }
 
-console.log(
-  "todayArr",
-  todayArr.map(t => ({
-    id: t.id,
-    text: t.text,
-  }))
-);
+  // 完了済みのタスクは当日だけ表示する
+  if (t.done && t.date < today) {
+    return;
+  }
+
+  // 未完了で日付が過去なら「やり残し」
+  if (!t.done && t.date < today) {
+    pastArr.push(t);
+  } else {
+    todayArr.push(t);
+  }
+});
+
+      console.log(
+        "todayArr",
+        todayArr.map(t => ({
+          id: t.id,
+          text: t.text,
+        }))
+      );
 
       setTodayTasks(todayArr);
       setPastTasks(pastArr);
@@ -268,65 +286,104 @@ console.log(
   }, [loadMaterials, loadUnitRules]);
 
   const normalizeDateField = (raw: any) => {
-    if (!raw) return '';
-    if (raw instanceof Date) return raw.toISOString().slice(0, 10);
-    if ((raw as any)?.toDate && typeof (raw as any).toDate === 'function') {
-      try { return (raw as any).toDate().toISOString().slice(0, 10); } catch (e) { return ''; }
+  if (!raw) return '';
+
+  // Date
+  if (raw instanceof Date) {
+    return getJapanDateString(raw);
+  }
+
+  // Firestore Timestamp
+  if ((raw as any)?.toDate && typeof (raw as any).toDate === 'function') {
+    try {
+      return getJapanDateString((raw as any).toDate());
+    } catch (e) {
+      return '';
     }
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim();
-      const parsed = new Date(trimmed);
-      if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  }
+
+  // string
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+
+    // すでに YYYY-MM-DD の場合はそのまま使用
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
       return trimmed;
     }
-    if (typeof raw === 'number') {
-      const d = new Date(raw);
-      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+
+    const parsed = new Date(trimmed);
+
+    if (!isNaN(parsed.getTime())) {
+      return getJapanDateString(parsed);
     }
-    try {
-      const d = new Date(raw);
-      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
-    } catch (e) {
-      return ''; }
-  };
 
+    return trimmed;
+  }
 
-  useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // number（Unix timestamp）
+  if (typeof raw === 'number') {
+    const d = new Date(raw);
 
-    setTodayTasks(prev => {
-      const stillToday: Task[] = [];
-      const moved: Task[] = [];
+    return isNaN(d.getTime())
+      ? ''
+      : getJapanDateString(d);
+  }
 
-      prev.forEach(task => {
-        const taskDate = new Date(task.date);
-        taskDate.setHours(0, 0, 0, 0);
+  // その他
+  try {
+    const d = new Date(raw);
 
-        if (task.done && taskDate < today) {
-          return;
-        }
+    return isNaN(d.getTime())
+      ? ''
+      : getJapanDateString(d);
+  } catch (e) {
+    return '';
+  }
+};
 
-        if (!task.done && taskDate < today) {
-          moved.push(task);
-        } else {
-          stillToday.push(task);
-        }
-      });
+useEffect(() => {
+  const today = getJapanDateString();
 
-      if (moved.length > 0) {
-        setPastTasks(p => [...p, ...moved]);
+  setTodayTasks(prev => {
+    const stillToday: Task[] = [];
+    const moved: Task[] = [];
+
+    prev.forEach(task => {
+      if (task.done && task.date < today) {
+        return;
       }
 
-      return stillToday;
+      if (!task.done && task.date < today) {
+        moved.push(task);
+      } else {
+        stillToday.push(task);
+      }
     });
-  }, [dayBoundaryTick]);
+
+    if (moved.length > 0) {
+      setPastTasks(p => [...p, ...moved]);
+    }
+
+    return stillToday;
+  });
+}, [dayBoundaryTick]);
 
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
 
   const [pastTasks, setPastTasks] = useState<Task[]>([]);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
+  // 今日の勉強時間を集計
+  const todayStudyMinutes = useMemo(() => {
+    const today = getJapanDateString();
 
+    return todayTasks.reduce((total, task) => {
+      if (task.date !== today || !task.done) return total;
+      return total + (task.durationMinutes ?? 0);
+    }, 0);
+  }, [todayTasks]);
+
+  const studyHours = Math.floor(todayStudyMinutes / 60);
+  const studyMinutes = todayStudyMinutes % 60;
 
 
 
@@ -417,7 +474,7 @@ console.log(
       return;
     }
 
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const dateStr = getJapanDateString();
     const newTask = {
       id: `local-${Date.now()}`,
       text,
@@ -464,7 +521,7 @@ console.log(
       return;
     }
 
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const dateStr = getJapanDateString();
     const newTask = {
       id: `local-${Date.now()}`,
       text,
@@ -601,7 +658,7 @@ console.log(
       difficulty?: Difficulty;
     }
   ) => {
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const dateStr = getJapanDateString();
     const text = record.content || `${record.material} ${record.amount}${record.unit}`;
     const newTask = {
       id: `local-record-${Date.now()}`,
@@ -655,7 +712,7 @@ console.log(
 
     try {
       const record = {
-        date: new Date().toISOString().slice(0, 10),
+        date: getJapanDateString(),
         subject,
         ...(category ? { category } : {}),
         material: actualMaterial,
@@ -777,93 +834,114 @@ console.log(
       ]).start();
     }, [opacity, translateY, shouldAnimate]);
 
-  const rowContent = (
-    <ThemedView style={[styles.taskCard, task.done && styles.taskCardDone]}>
-      <TouchableOpacity
-        accessibilityLabel={task.done ? 'タスクを未完了に戻す' : 'タスクを完了にする'}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: task.done }}
-        onPress={() => task.done ? onToggle(task.id) : onOpenRecord(task)}
-        style={[styles.taskCheckButton, task.done && styles.taskCheckButtonDone]}
-      >
-        {task.done && <ThemedText style={styles.taskCheckMark}>✓</ThemedText>}
-      </TouchableOpacity>
-      {task.done ? (
+    const rowContent = (
+      <ThemedView style={[styles.taskCard, task.done && styles.taskCardDone]}>
         <TouchableOpacity
-          accessibilityLabel="このタスクの記録を確認する"
-          accessibilityRole="button"
-          activeOpacity={0.82}
-          onPress={() => onOpenRecord(task)}
-          style={styles.taskDetails}
+          accessibilityLabel={task.done ? 'タスクを未完了に戻す' : 'タスクを完了にする'}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: task.done }}
+          onPress={() => task.done ? onToggle(task.id) : onOpenRecord(task)}
+          style={[styles.taskCheckButton, task.done && styles.taskCheckButtonDone]}
         >
-          <ThemedView style={[styles.taskStatusBadge, styles.taskStatusBadgeDone]}>
-            <ThemedText style={[styles.taskStatusText, styles.taskStatusTextDone]}>
-              {task.subject || (isLeftover ? 'やり残し' : '今日のタスク')}
+          {task.done && <ThemedText style={styles.taskCheckMark}>✓</ThemedText>}
+        </TouchableOpacity>
+        {task.done ? (
+          <TouchableOpacity
+            accessibilityLabel="このタスクの記録を確認する"
+            accessibilityRole="button"
+            activeOpacity={0.82}
+            onPress={() => onOpenRecord(task)}
+            style={styles.taskDetails}
+          >
+            <ThemedView style={[styles.taskStatusBadge, styles.taskStatusBadgeDone]}>
+              <ThemedText style={[styles.taskStatusText, styles.taskStatusTextDone]}>
+                {task.subject || (isLeftover ? 'やり残し' : '今日のタスク')}
+              </ThemedText>
+              {isLeftover && task.subject && (
+                <ThemedText style={styles.taskLeftoverLabel}>やり残し</ThemedText>
+              )}
+            </ThemedView>
+            <ThemedText numberOfLines={2} style={[styles.taskTitle, styles.taskTitleDone]}>
+              {taskTitle}
             </ThemedText>
-            {isLeftover && task.subject && (
-              <ThemedText style={styles.taskLeftoverLabel}>やり残し</ThemedText>
+            {taskAmount && (
+              <ThemedText numberOfLines={1} style={styles.taskHint}>
+                終了：{taskAmount}
+              </ThemedText>
             )}
-          </ThemedView>
-          <ThemedText numberOfLines={2} style={[styles.taskTitle, styles.taskTitleDone]}>
-            {taskTitle}
-          </ThemedText>
-          {taskAmount && (
+            {difficultyLabel && (
+              <ThemedText style={styles.taskDetailText}>
+                {difficultyLabel}
+              </ThemedText>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <ThemedView style={styles.taskDetails}>
+            <ThemedView style={[styles.taskStatusBadge, task.done && styles.taskStatusBadgeDone]}>
+              <ThemedText style={[styles.taskStatusText, task.done && styles.taskStatusTextDone]}>
+                {task.subject || (isLeftover ? 'やり残し' : '今日のタスク')}
+              </ThemedText>
+              {isLeftover && task.subject && (
+                <ThemedText style={styles.taskLeftoverLabel}>やり残し</ThemedText>
+              )}
+            </ThemedView>
+            <ThemedText numberOfLines={2} style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
+              {taskTitle}
+            </ThemedText>
             <ThemedText numberOfLines={1} style={styles.taskHint}>
-              終了：{taskAmount}
+              {task.material ? `目標：${task.text}` : '終わったらチェックをつけよう'}
             </ThemedText>
-          )}
-          {difficultyLabel && (
-            <ThemedText style={styles.taskDetailText}>
-              {difficultyLabel}
-            </ThemedText>
-          )}
-        </TouchableOpacity>
-      ) : (
-        <ThemedView style={styles.taskDetails}>
-        <ThemedView style={[styles.taskStatusBadge, task.done && styles.taskStatusBadgeDone]}>
-          <ThemedText style={[styles.taskStatusText, task.done && styles.taskStatusTextDone]}>
-            {task.subject || (isLeftover ? 'やり残し' : '今日のタスク')}
-          </ThemedText>
-          {isLeftover && task.subject && (
-            <ThemedText style={styles.taskLeftoverLabel}>やり残し</ThemedText>
-          )}
-        </ThemedView>
-        <ThemedText numberOfLines={2} style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
-          {taskTitle}
-        </ThemedText>
-        <ThemedText numberOfLines={1} style={styles.taskHint}>
-          {task.material ? `目標：${task.text}` : '終わったらチェックをつけよう'}
-        </ThemedText>
-        </ThemedView>
-      )}
-      {!task.done && (
-        <TouchableOpacity
-          accessibilityLabel="タスクを削除する"
-          accessibilityRole="button"
-          onPress={() => onDelete(task.id)}
-          style={styles.deleteTaskButton}
-        >
-          <ThemedText style={styles.deleteTaskButtonText}>🗑</ThemedText>
-        </TouchableOpacity>
-      )}
-    </ThemedView>
-  );
+          </ThemedView>
+        )}
+        {!task.done && (
+          <TouchableOpacity
+            accessibilityLabel="タスクを削除する"
+            accessibilityRole="button"
+            onPress={() => onDelete(task.id)}
+            style={styles.deleteTaskButton}
+          >
+            <ThemedText style={styles.deleteTaskButtonText}>🗑</ThemedText>
+          </TouchableOpacity>
+        )}
+      </ThemedView>
+    );
 
     if (!shouldAnimate) {
-      return rowContent;
+      return (
+        <ThemedView style={styles.taskGridItem}>
+          {rowContent}
+        </ThemedView>
+      );
     }
 
     return (
       <Animated.View
-        style={{
-          opacity,
-          transform: [{ translateY }],
-        }}
+        style={[
+          styles.taskGridItem,
+          {
+            opacity,
+            transform: [{ translateY }],
+          },
+        ]}
       >
         {rowContent}
       </Animated.View>
     );
   };
+
+  const renderStudyTime = () => (
+    <ThemedView style={styles.studyTimeBox}>
+      <ThemedText style={styles.studyTimeTitle}>
+        今日の勉強時間
+      </ThemedText>
+
+      <ThemedText style={styles.studyTimeValue}>
+        {studyHours > 0 ? `${studyHours}時間` : ''}
+        {studyMinutes > 0 ? `${studyMinutes}分` : ''}
+        {todayStudyMinutes === 0 ? '0分' : ''}
+      </ThemedText>
+    </ThemedView>
+  );
 
   // 共通レンダリング関数
 
@@ -905,23 +983,24 @@ console.log(
           <ThemedText style={styles.addButtonText}>保存</ThemedText>
         </TouchableOpacity>
       </ThemedView>
-
-      {pastTasks.filter(task => !task.done).map(task => (
-        <TaskRow
-          key={task.id}
-          task={task}
-          isLeftover
-          editingTaskId={editingTaskId}
-          editingText={editingText}
-          onToggle={toggleTask}
-          onDelete={deleteTask}
-          onOpenRecord={openRecordFromTask}
-          onSaveEdit={saveEdit}
-          onCancelEdit={cancelEdit}
-          onStartEdit={() => {}}
-          onSetEditingText={setEditingText}
-        />
-      ))}
+      <ThemedView style={styles.taskGrid}>
+        {pastTasks.filter(task => !task.done).map(task => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            isLeftover
+            editingTaskId={editingTaskId}
+            editingText={editingText}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+            onOpenRecord={openRecordFromTask}
+            onSaveEdit={saveEdit}
+            onCancelEdit={cancelEdit}
+            onStartEdit={() => { }}
+            onSetEditingText={setEditingText}
+          />
+        ))}
+      </ThemedView>
 
       {previousMessages.filter(item => !item.done).map(item => (
         <TaskRow
@@ -935,7 +1014,7 @@ console.log(
           onOpenRecord={openRecordFromTask}
           onSaveEdit={saveEdit}
           onCancelEdit={cancelEdit}
-          onStartEdit={() => {}}
+          onStartEdit={() => { }}
           onSetEditingText={setEditingText}
         />
       ))}
@@ -971,7 +1050,7 @@ console.log(
           onOpenRecord={openRecordFromTask}
           onSaveEdit={saveEdit}
           onCancelEdit={cancelEdit}
-          onStartEdit={() => {}}
+          onStartEdit={() => { }}
           onSetEditingText={setEditingText}
         />
       ))}
@@ -988,7 +1067,7 @@ console.log(
           onOpenRecord={openRecordFromTask}
           onSaveEdit={saveEdit}
           onCancelEdit={cancelEdit}
-          onStartEdit={() => {}}
+          onStartEdit={() => { }}
           onSetEditingText={setEditingText}
         />
       ))}
@@ -1235,19 +1314,20 @@ console.log(
     return (
       <ThemedView style={styles.mobileContainer}>
         <ScrollView style={styles.mobileContent}>
-        <ThemedView style={{ alignItems: 'center', marginBottom: 20 }}>
-          <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
-          <ThemedText style={styles.dateDisplay}>
-            {testDateText || '日付が未設定'}
-          </ThemedText>
-        </ThemedView>
-        <TouchableOpacity style={styles.attackButton} onPress={() => router.push('/attack')}>
-          <ThemedText style={styles.attackButtonText}>アタック</ThemedText>
-        </TouchableOpacity>
+          <ThemedView style={{ alignItems: 'center', marginBottom: 20 }}>
+            <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
+            <ThemedText style={styles.dateDisplay}>
+              {testDateText || '日付が未設定'}
+            </ThemedText>
+            {renderStudyTime()}
+          </ThemedView>
+          <TouchableOpacity style={styles.attackButton} onPress={() => router.push('/attack')}>
+            <ThemedText style={styles.attackButtonText}>アタック</ThemedText>
+          </TouchableOpacity>
 
-        {renderTasks()}
-        {renderRecordModal()}
-      </ScrollView>
+          {renderTasks()}
+          {renderRecordModal()}
+        </ScrollView>
       </ThemedView>
     );
   }
@@ -1256,7 +1336,7 @@ console.log(
   return (
     <ThemedView style={styles.pcContainer}>
       <ScrollView style={styles.mainArea}>
-        <ThemedView style={[styles.topRow, { alignItems: 'center' }]}> 
+        <ThemedView style={[styles.topRow, { alignItems: 'center' }]}>
           <ThemedView>
             <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
             <ThemedText style={styles.dateDisplay}>
@@ -1264,7 +1344,7 @@ console.log(
             </ThemedText>
           </ThemedView>
         </ThemedView>
-
+        {renderStudyTime()}
         <ThemedView style={{ height: 30 }} />
 
         <TouchableOpacity style={styles.attackButton} onPress={() => router.push('/attack')}>
@@ -1358,6 +1438,30 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     textAlign: 'center',
     fontWeight: '700',
+  },
+
+  studyTimeBox: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#aaacf5ff',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+
+  studyTimeTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#6e3c7a',
+    marginBottom: 4,
+  },
+
+  studyTimeValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#aaacf5ff',
   },
 
   menuRow: {
@@ -1766,6 +1870,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     width: '100%',
   },
+
+  taskGridItem: {
+    width: '48.5%',
+    marginBottom: 10,
+  },
+
+  taskGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+
 
   saveButton: {
     marginLeft: 8,

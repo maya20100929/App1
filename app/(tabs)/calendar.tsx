@@ -1,5 +1,5 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { ThemedText } from '@/components/themed-text';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, doc, getDocs, onSnapshot } from 'firebase/firestore';
@@ -8,7 +8,17 @@ import { Alert, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpa
 import { auth, db } from '../../lib/firebase';
 import { getAllRecords, getRecordsByDate, type StudyRecord } from '../../lib/recordStore';
 
-type Task = { id: string; text: string; date: string; done: boolean; archived?: boolean };
+type Task = {
+  id: string;
+  text: string;
+  date: string;
+  done: boolean;
+  archived?: boolean;
+  subject?: string;
+  material?: string;
+  amount?: number;
+  unit?: string;
+};
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 export default function CalendarScreen() {
@@ -44,6 +54,7 @@ export default function CalendarScreen() {
   const [eventType, setEventType] =
     useState<'テスト' | '模試' | '学校' | 'その他'>('テスト');
   const webInputRef = useRef<HTMLInputElement | null>(null);
+  const [recordEmoji, setRecordEmoji] = useState('📚');
 
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
@@ -100,9 +111,33 @@ export default function CalendarScreen() {
   const days = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
     const start = new Date(first); start.setDate(1 - first.getDay());
+    
     return Array.from({ length: 42 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); return day; });
   }, [month]);
   const changeMonth = (amount: number) => setMonth(value => new Date(value.getFullYear(), value.getMonth() + amount, 1));
+
+  const sortedRecords = [...records].sort((a, b) => {
+  const subjectCompare = a.subject.localeCompare(b.subject, 'ja');
+  if (subjectCompare !== 0) return subjectCompare;
+
+  return (a.material ?? '').localeCompare(b.material ?? '', 'ja');
+});
+
+const sortedIncompleteTasks = tasks
+  .filter(task => !task.done)
+  .sort((a, b) => {
+    const subjectCompare = (a.subject ?? '').localeCompare(
+      b.subject ?? '',
+      'ja'
+    );
+
+    if (subjectCompare !== 0) return subjectCompare;
+
+    return (a.material ?? '').localeCompare(
+      b.material ?? '',
+      'ja'
+    );
+  });
 
   const saveTask = async () => {
     if (!user) return;
@@ -201,52 +236,83 @@ export default function CalendarScreen() {
   };
 
   const saveEvent = async () => {
-    if (!user) return;
+  if (!user) {
+    Alert.alert('エラー', 'ログイン情報がありません');
+    return;
+  }
 
-    const title = eventTitle.trim();
-    const memo = eventMemo.trim();
+  const title = eventTitle.trim();
+  const memo = eventMemo.trim();
 
-    if (!title) {
-      Alert.alert('入力不足', '予定名を入力してください');
-      return;
-    }
+  if (!title) {
+    Alert.alert('入力不足', '予定名を入力してください');
+    return;
+  }
 
-    const startDate = eventStartDate || selectedDate;
-    const endDate = eventEndDate || startDate;
+  const startDate = eventStartDate || selectedDate;
+  const endDate = eventEndDate || startDate;
 
-    if (endDate < startDate) {
-      Alert.alert('入力不足', '開始日を終わり日より前にしてください');
-      return;
-    }
+  if (endDate < startDate) {
+    Alert.alert('入力不足', '開始日を終了日より前にしてください');
+    return;
+  }
 
-    await addDoc(collection(db, 'users', user.uid, 'events'), {
+  try {
+    // Firestoreに保存
+    const docRef = await addDoc(
+      collection(db, 'users', user.uid, 'events'),
+      {
+        title,
+        startDate,
+        endDate,
+        date: startDate,
+        type: eventType,
+        memo,
+        createdAt: new Date().toISOString(),
+      }
+    );
+
+    console.log('予定を保存しました:', docRef.id);
+
+    // 保存した予定を画面にも即反映
+    const newEvent: CalendarEvent = {
+      id: docRef.id,
       title,
       startDate,
       endDate,
       date: startDate,
-      type: 'その他',
+      type: eventType,
       memo,
-      createdAt: new Date().toISOString(),
-    });
+    };
 
+    setAllEvents(current => [...current, newEvent]);
+
+    // 現在選択している日に該当する予定なら表示
+    const start = newEvent.startDate || newEvent.date || selectedDate;
+    const end = newEvent.endDate || start;
+
+    if (selectedDate >= start && selectedDate <= end) {
+      setEvents(current => [...current, newEvent]);
+    }
+
+    // 入力をリセット
     setModalVisible(false);
     setEventTitle('');
     setEventMemo('');
     setEventStartDate(selectedDate);
     setEventEndDate(selectedDate);
 
-    const snapshot = await getDocs(collection(db, 'users', user.uid, 'events'));
-    const savedEvents: CalendarEvent[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Omit<CalendarEvent, 'id'>),
-    }));
-    setAllEvents(savedEvents);
-    setEvents(savedEvents.filter((event) => {
-      const start = event.startDate || event.date || selectedDate;
-      const end = event.endDate || start;
-      return selectedDate >= start && selectedDate <= end;
-    }));
-  };
+    Alert.alert('保存完了', '予定を保存しました');
+
+  } catch (error) {
+    console.error('予定の保存に失敗:', error);
+
+    Alert.alert(
+      '保存エラー',
+      '予定を保存できませんでした。\nFirestoreの設定を確認してください。'
+    );
+  }
+};
 
   return <ScrollView style={styles.container} contentContainerStyle={styles.content}>
     <View style={styles.monthRow}>
@@ -256,9 +322,21 @@ export default function CalendarScreen() {
     </View>
     <View style={styles.weekRow}>{['日', '月', '火', '水', '木', '金', '土'].map(day => <ThemedText key={day} style={styles.weekday}>{day}</ThemedText>)}</View>
     <View style={styles.grid}>{days.map(day => {
-      const key = dateKey(day); const isCurrentMonth = day.getMonth() === month.getMonth(); const isTest = key === testDate;
-      const isToday = key === dateKey(new Date());
-      const hasRecord = allRecords.some(record => record.date === key); const dayTasks = allTasks.filter(task => task.date === key);
+      const key = dateKey(day);
+const isCurrentMonth = day.getMonth() === month.getMonth();
+const isTest = key === testDate;
+const isToday = key === dateKey(new Date());
+const hasRecord = allRecords.some(record => record.date === key);
+const dayTasks = allTasks.filter(task => task.date === key);
+
+const dayEvents = allEvents.filter(event => {
+  const start = event.startDate || event.date;
+  const end = event.endDate || start;
+
+  return start && end && key >= start && key <= end;
+});
+
+
       return <TouchableOpacity key={key} style={[
   styles.day,
   !isCurrentMonth && styles.otherMonth,
@@ -266,12 +344,32 @@ export default function CalendarScreen() {
   key === selectedDate && styles.selectedDay,
 ]}onPress={() => setSelectedDate(key)}>
 
-   <ThemedText style={styles.dayNumber}>
-    {day.getDate()}
+ <ThemedText style={styles.dayNumber}>
+  {day.getDate()}
+</ThemedText>
+
+{isTest && (
+  <ThemedText style={styles.testBadge}>
+    テスト
   </ThemedText>
-        {isTest && <ThemedText style={styles.testBadge}>テスト</ThemedText>}
-        {hasRecord && <ThemedText style={styles.recordBadge}>記録</ThemedText>}
-        {dayTasks.length > 0 && <ThemedText style={styles.taskBadge}>{dayTasks.filter(task => task.done).length}/{dayTasks.length} 完了</ThemedText>}
+)}
+
+{dayEvents.map(event => (
+  <ThemedText
+    key={event.id}
+    style={styles.eventBadge}
+    numberOfLines={1}
+  >
+    {event.title}
+  </ThemedText>
+))}
+
+{hasRecord && (
+  <ThemedText style={styles.recordEmoji}>
+    {recordEmoji}
+  </ThemedText>
+)}
+
       </TouchableOpacity>;
     })}</View>
     <View style={styles.detailBox}>
@@ -294,7 +392,7 @@ export default function CalendarScreen() {
 
       {events.length === 0 ? (
         <ThemedText style={styles.empty}>
-          予定はありません
+          なし
         </ThemedText>
       ) : (
         events.map(event => (
@@ -307,49 +405,41 @@ export default function CalendarScreen() {
         ))
       )}
 
-
-      <ThemedText style={styles.detailTitle}>
-        {selectedDate}
-      </ThemedText>
       {selectedDate === testDate && <TouchableOpacity style={styles.testLink} onPress={() => router.push('/testrecord')}><ThemedText style={styles.testLinkText}>テスト予定を見る</ThemedText></TouchableOpacity>}
 
       {!isFuture && (
         <>
-          <ThemedText style={styles.sectionTitle}>できたこと</ThemedText>
+<ThemedText style={styles.sectionTitle}>できたこと</ThemedText>
 
-          {records.length === 0 && tasks.filter(task => task.done).length === 0 ? (
-            <ThemedText style={styles.empty}>記録なし</ThemedText>
-          ) : (
-            <>
-              {records.map(record => (
-                <ThemedText key={record.id} style={styles.item}>
-                  ・{record.subject}：{record.content}
-                </ThemedText>
-              ))}
+{sortedRecords.length === 0 ? (
+  <ThemedText style={styles.empty}>
+    なし
+  </ThemedText>
+) : (
+  sortedRecords.map(record => (
+    <ThemedText key={record.id} style={styles.item}>
+      ・{record.subject}　{record.material}　{record.amount}{record.unit}
+    </ThemedText>
+  ))
+)}
 
-              {tasks
-                .filter(task => task.done)
-                .map(task => (
-                  <ThemedText key={task.id} style={styles.item}>
-                    ✓ {task.text}
-                  </ThemedText>
-                ))}
-            </>
-          )}
+<ThemedText style={styles.sectionTitle}>できなかったこと</ThemedText>
 
-          <ThemedText style={styles.sectionTitle}>できなかったこと</ThemedText>
 
-          {tasks.filter(task => !task.done).length === 0 ? (
-            <ThemedText style={styles.empty}>なし</ThemedText>
-          ) : (
-            tasks
-              .filter(task => !task.done)
-              .map(task => (
-                <ThemedText key={task.id} style={styles.item}>
-                  ・{task.text}
-                </ThemedText>
-              ))
-          )}
+{sortedIncompleteTasks.length === 0 ? (
+  <ThemedText style={styles.empty}>
+    なし
+  </ThemedText>
+) : (
+  sortedIncompleteTasks.map(task => (
+    <ThemedText key={task.id} style={styles.item}>
+      ・{task.subject ?? 'その他'}　{task.material ?? task.text}
+      {task.amount != null && task.unit
+        ? `　${task.amount}${task.unit}`
+        : ''}
+    </ThemedText>
+  ))
+)}
         </>
       )}
     </View>
@@ -433,7 +523,7 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
   addButton: {
-    backgroundColor: '#6C7BFA',
+    backgroundColor: '#aaacf5ff',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
@@ -498,7 +588,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 23,
     fontWeight: '800',
-    color: '#554a8e',
+    color: '#8d87c8',
   },
 
   modalOverlay: {
@@ -517,7 +607,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#554a8e',
+    color: '#8d87c8',
     marginBottom: 12,
   },
 
@@ -550,7 +640,7 @@ const styles = StyleSheet.create({
   },
 
   dateButtonText: {
-    color: '#554a8e',
+    color: '#8d87c8',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -575,12 +665,12 @@ const styles = StyleSheet.create({
   },
 
   cancelButtonText: {
-    color: '#554a8e',
+    color: '#8d87c8',
     fontWeight: '700',
   },
 
   saveButton: {
-    backgroundColor: '#6C7BFA',
+    backgroundColor: '#8d87c8',
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -593,7 +683,7 @@ const styles = StyleSheet.create({
 
   monthButton: {
     fontSize: 36,
-    color: '#6C7BFA',
+    color: '#8d87c8',
     paddingHorizontal: 12,
   },
 
@@ -650,22 +740,28 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
 
-  recordBadge: {
-    color: '#fff',
-    backgroundColor: '#6C7BFA',
-    borderRadius: 7,
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 3,
-    paddingVertical: 2,
-  },
-
+  recordEmoji: {
+  fontSize: 18,
+  textAlign: 'center',
+  marginTop: 4,
+},
   taskBadge: {
     color: '#554a8e',
     fontSize: 9,
     textAlign: 'center',
     marginTop: 3,
   },
+
+eventBadge: {
+  color: '#fff',
+  backgroundColor: 'rgb(146, 149, 244)',
+  borderRadius: 6,
+  fontSize: 9,
+  textAlign: 'center',
+  marginTop: 3,
+  paddingVertical: 2,
+  paddingHorizontal: 3,
+},
 
   // ===== 詳細エリア =====
   detailBox: {
