@@ -39,7 +39,11 @@ const db = getFirestore(app);
 if (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative') {
   (async () => {
     try {
-      const { getReactNativePersistence } = await import('firebase/auth/react-native');
+      // Firebase v12 no longer ships this entry point's type declaration.
+      // Keeping the module name dynamic preserves the optional native fallback
+      // without making Web/TypeScript builds resolve an unavailable export.
+      const reactNativeAuthEntry = 'firebase/auth/react-native';
+      const { getReactNativePersistence } = await import(reactNativeAuthEntry);
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
       await setPersistence(auth, getReactNativePersistence(AsyncStorage));
       console.log('[firebase] React Native auth persistence configured');

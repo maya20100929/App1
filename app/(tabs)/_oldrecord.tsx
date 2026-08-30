@@ -81,21 +81,6 @@ export default function OldRecordScreen() {
   const isPC = width >= 768;
   const hasRecords = records.length > 0;
 
-  if (!hasRecords) {
-    return (
-      <ScrollView style={styles.container}>
-        <ThemedText style={styles.title}>今までの記録</ThemedText>
-        <View style={styles.emptyState}>
-          <ThemedText style={styles.emptyEmoji}>📭</ThemedText>
-          <ThemedText style={styles.emptyTitle}>まだ記録がありません</ThemedText>
-          <ThemedText style={styles.emptyDescription}>
-            学習を記録すると、ここに統計が表示されます。
-          </ThemedText>
-        </View>
-      </ScrollView>
-    );
-  }
-
   /* =====================
      合計ポイント
   ===================== */
@@ -143,6 +128,21 @@ export default function OldRecordScreen() {
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, []);
+
+  if (!hasRecords) {
+    return (
+      <ScrollView style={styles.container}>
+        <ThemedText style={styles.title}>今までの記録</ThemedText>
+        <View style={styles.emptyState}>
+          <ThemedText style={styles.emptyEmoji}>📭</ThemedText>
+          <ThemedText style={styles.emptyTitle}>まだ記録がありません</ThemedText>
+          <ThemedText style={styles.emptyDescription}>
+            学習を記録すると、ここに統計が表示されます。
+          </ThemedText>
+        </View>
+      </ScrollView>
+    );
+  }
 
   /* =====================
      円グラフ用データ

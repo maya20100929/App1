@@ -1,148 +1,130 @@
 import { Slot, usePathname, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
+type PrimaryDestination = {
+  label: '今日' | '記録' | '科目' | 'カレンダー' | 'アタック';
+  path: '/Homescreen' | '/oldrecord' | '/subjects' | '/calendar' | '/attack';
+};
+
+const primaryDestinations: PrimaryDestination[] = [
+  { label: '今日', path: '/Homescreen' },
+  { label: '記録', path: '/oldrecord' },
+  { label: '科目', path: '/subjects' },
+  { label: 'カレンダー', path: '/calendar' },
+  { label: 'アタック', path: '/attack' },
+];
+
+const getSection = (pathname: string): PrimaryDestination['label'] => {
+  if (pathname.startsWith('/calendar')) return 'カレンダー';
+  if (pathname === '/attack') return 'アタック';
+  if (pathname.startsWith('/oldrecord') || pathname === '/record') return '記録';
+  if (pathname.startsWith('/subjects')) return '科目';
+  return '今日';
+};
+
+const getBackDestination = (pathname: string) => {
+  if (pathname.startsWith('/oldrecord/') ) return { label: '記録', path: '/oldrecord' as const };
+  if (pathname.startsWith('/subjects/')) return { label: '科目', path: '/subjects' as const };
+  if (pathname === '/record') return { label: '今日', path: '/Homescreen' as const };
+  if (pathname === '/testrecord' || pathname === '/notification' || pathname === '/settingsscreen' || pathname === '/help') {
+    return { label: '今日', path: '/Homescreen' as const };
+  }
+  return null;
+};
+
 export default function TabsLayout() {
-  type RoutePath = '/Homescreen' | '/oldrecord' | '/testrecord' | '/notification' | '/settingsscreen' | '/attack' | '/calendar' | '/login' | '/register';
   const router = useRouter();
   const pathname = usePathname();
-  const currentPath = pathname as RoutePath;
-  const [menuOpen, setMenuOpen] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-260)).current;
-
-  useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: menuOpen ? 0 : -260,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [menuOpen, slideAnim]);
-
-  const navigate = (path: '/Homescreen' | '/oldrecord' | '/testrecord' | '/notification' | '/settingsscreen' | '/attack' | '/calendar' | '/login' | '/register') => {
-    setMenuOpen(false);
-    router.push(path);
-  };
-
-  const showHomeButton = currentPath !== '/Homescreen';
-  const hideHeader = currentPath === '/login' || currentPath === '/register';
-  const menuItems: Array<{ label: string; path: RoutePath }> = [
-    { label: '今までの記録', path: '/oldrecord' },
-    { label: 'テスト', path: '/testrecord' },
-    { label: 'カレンダー', path: '/calendar' },
-    { label: '通知', path: '/notification' },
-    { label: '設定', path: '/settingsscreen' },
-  ];
+  const hideHeader = pathname === '/login';
+  const section = getSection(pathname);
+  const backDestination = getBackDestination(pathname);
 
   return (
-    <ThemedView style={styles.container}>
-      {!hideHeader ? (
-        <ThemedView style={styles.header}>
-          <TouchableOpacity onPress={() => setMenuOpen(true)}>
-            <ThemedText style={styles.hamburgerIcon}>☰</ThemedText>
-          </TouchableOpacity>
-          {showHomeButton ? (
-            <TouchableOpacity
-              style={styles.homeButton}
-              onPress={() => navigate('/Homescreen')}
-              accessibilityLabel="ホーム"
+    <ThemedView className="flex-1 bg-canvas-light dark:bg-canvas-dark" style={[styles.container, !hideHeader && { paddingTop: 44 }]}>
+      {!hideHeader && (
+        <ThemedView className="border-b border-brand-200 bg-surface-light dark:border-brand-800 dark:bg-surface-dark" style={styles.header}>
+          {backDestination ? (
+            <Pressable
+              accessibilityLabel={`${backDestination.label}に戻る`}
               accessibilityRole="button"
+              onPress={() => router.replace(backDestination.path)}
+              style={styles.backButton}
             >
-              <ThemedText style={styles.homeButtonText}>⌂</ThemedText>
-            </TouchableOpacity>
-          ) : null}
+              <ThemedText style={styles.backText}>← {backDestination.label}</ThemedText>
+            </Pressable>
+          ) : (
+            <View style={styles.primaryNavigation}>
+              {primaryDestinations.map(destination => {
+                const isCurrent = destination.label === section;
+                return (
+                  <Pressable
+                    key={destination.path}
+                    accessibilityLabel={destination.label}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: isCurrent }}
+                    onPress={() => router.replace(destination.path)}
+                    style={[styles.navigationItem, isCurrent && styles.navigationItemCurrent]}
+                  >
+                    <ThemedText style={[styles.navigationText, isCurrent && styles.navigationTextCurrent]}>
+                      {destination.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          {backDestination && <ThemedText style={styles.sectionTitle}>{section}</ThemedText>}
         </ThemedView>
-      ) : null}
+      )}
 
       <Slot />
-
-      {!hideHeader && menuOpen ? <Pressable style={styles.overlay} onPress={() => setMenuOpen(false)} /> : null}
-
-      {!hideHeader ? (
-        <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}> 
-          {menuItems
-            .filter(item => item.path !== currentPath)
-            .map(item => (
-              <TouchableOpacity
-                key={item.path}
-                style={styles.menuButton}
-                onPress={() => navigate(item.path)}
-              >
-                <ThemedText style={styles.menuText}>{item.label}</ThemedText>
-              </TouchableOpacity>
-            ))}
-        </Animated.View>
-      ) : null}
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1, paddingTop: 44 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e8e2ff',
-    backgroundColor: '#fff',
-  },
-  hamburgerIcon: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#aaacf5ff',
-  },
-  homeButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: '#aaacf5ff',
-  },
-  homeButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 18,
-  },
-  overlay: {
     position: 'absolute',
-    top: 56,
+    top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(170,172,245,0.18)',
-  },
-  sidebar: {
-    position: 'absolute',
-    top: 56,
-    left: 0,
-    width: 260,
-    bottom: 0,
-    backgroundColor: '#fff',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     zIndex: 10,
+    elevation: 4,
   },
-  menuButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-    backgroundColor: '#aaacf5ff',
+  primaryNavigation: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    gap: 8,
   },
-  menuText: {
-    color: '#fff',
-    fontWeight: '700',
+  navigationItem: {
+    minWidth: 72,
+    alignItems: 'center',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  navigationItemCurrent: { backgroundColor: '#7464E8' },
+  navigationText: { color: '#70698A', fontSize: 14, fontWeight: '700' },
+  navigationTextCurrent: { color: '#FFFFFF' },
+  backButton: { alignSelf: 'flex-start', paddingVertical: 8 },
+  backText: { color: '#7464E8', fontSize: 15, fontWeight: '700' },
+  sectionTitle: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: 12,
+    color: '#211B37',
     fontSize: 16,
+    fontWeight: '800',
   },
+  
 });

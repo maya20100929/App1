@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
 import { Picker } from '@react-native-picker/picker';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   addDoc,
@@ -1314,16 +1314,16 @@ useEffect(() => {
     return (
       <ThemedView style={styles.mobileContainer}>
         <ScrollView style={styles.mobileContent}>
-          <ThemedView style={{ alignItems: 'center', marginBottom: 20 }}>
-            <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
-            <ThemedText style={styles.dateDisplay}>
-              {testDateText || '日付が未設定'}
-            </ThemedText>
+          <ThemedView style={styles.nextTestRowMobile}>
+            <ThemedView>
+              <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
+              <ThemedText style={styles.dateDisplay}>
+                {testDateText || '日付が未設定'}
+              </ThemedText>
+            </ThemedView>
             {renderStudyTime()}
           </ThemedView>
-          <TouchableOpacity style={styles.attackButton} onPress={() => router.push('/attack')}>
-            <ThemedText style={styles.attackButtonText}>アタック</ThemedText>
-          </TouchableOpacity>
+          {/* アタックは上部バーから移動できるためここでは表示しない */}
 
           {renderTasks()}
           {renderRecordModal()}
@@ -1336,20 +1336,18 @@ useEffect(() => {
   return (
     <ThemedView style={styles.pcContainer}>
       <ScrollView style={styles.mainArea}>
-        <ThemedView style={[styles.topRow, { alignItems: 'center' }]}>
-          <ThemedView>
-            <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
-            <ThemedText style={styles.dateDisplay}>
-              {testDateText || '日付が未設定'}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
-        {renderStudyTime()}
-        <ThemedView style={{ height: 30 }} />
+        <ThemedView style={[styles.topRow, { alignItems: 'center' }]}> 
+              <ThemedView>
+                <ThemedText style={styles.sectionTitle}>次回テスト日</ThemedText>
+                <ThemedText style={styles.dateDisplay}>
+                  {testDateText || '日付が未設定'}
+                </ThemedText>
+              </ThemedView>
+              {renderStudyTime()}
+            </ThemedView>
+            <ThemedView style={{ height: 30 }} />
 
-        <TouchableOpacity style={styles.attackButton} onPress={() => router.push('/attack')}>
-          <ThemedText style={styles.attackButtonText}>アタック</ThemedText>
-        </TouchableOpacity>
+        {/* アタックは上部バーから移動できるためここでは表示しない */}
 
         <ThemedView style={styles.twoColumnsVertical}>
           <ThemedView style={styles.columnFull}>{renderTasks()}</ThemedView>
@@ -1434,9 +1432,9 @@ const styles = StyleSheet.create({
   dateDisplay: {
     paddingVertical: 12,
     paddingHorizontal: 16,
-    width: 180,
+    minWidth: 120,
     marginBottom: 6,
-    textAlign: 'center',
+    textAlign: 'left',
     fontWeight: '700',
   },
 
@@ -1449,6 +1447,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  nextTestRowMobile: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
   },
 
   studyTimeTitle: {
@@ -1456,12 +1465,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6e3c7a',
     marginBottom: 4,
+    textAlign: 'center',
   },
 
   studyTimeValue: {
     fontSize: 26,
     fontWeight: '800',
     color: '#aaacf5ff',
+    textAlign: 'center',
   },
 
   menuRow: {
@@ -1818,7 +1829,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9e1ff',
     borderRadius: 20,
-    padding: 16,
+    paddingVertical: 16,
+    paddingLeft: 12,
+    paddingRight: 8,
   },
 
   recordBox: {
@@ -1872,14 +1885,14 @@ const styles = StyleSheet.create({
   },
 
   taskGridItem: {
-    width: '48.5%',
+    width: '50%',
     marginBottom: 10,
   },
 
   taskGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     width: '100%',
   },
 
