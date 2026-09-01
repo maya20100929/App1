@@ -5,14 +5,14 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    // Picker,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Modal,
+  // Picker,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { getUnitPointRulesBySubject, saveUnitPointRule } from '../../lib/recordStore';
 import { addSubject, addSubjectCategory, deleteSubject, deleteSubjectCategory, getSubjectSettings, updateSubject, updateSubjectCategory, type SubjectSetting } from '../../lib/subjectStore';
@@ -127,7 +127,11 @@ export default function SettingsScreen() {
   };
 
   const changeSubjectColor = async (subject: SubjectSetting, color: string) => {
-    setSubjects(await updateSubject(subject.name, subject.name, color));
+    setSubjects(await updateSubject(subject.name, subject.name, color, subject.saturation ?? 100));
+  };
+
+  const changeSubjectSaturation = async (subject: SubjectSetting, saturation: number) => {
+    setSubjects(await updateSubject(subject.name, subject.name, subject.color, saturation));
   };
 
   const removeSubject = async (name: string) => {
@@ -449,6 +453,20 @@ export default function SettingsScreen() {
                             </View>
                           );
                         })}
+                        <View style={{ marginTop: 8 }}>
+                          <ThemedText style={{ marginBottom: 6 }}>彩度</ThemedText>
+                          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                            {[100, 80, 60, 40, 20].map(val => (
+                              <TouchableOpacity
+                                key={val}
+                                style={{ padding: 8, borderRadius: 8, backgroundColor: subject.saturation === val ? '#eee' : 'transparent' }}
+                                onPress={() => changeSubjectSaturation(subject, val)}
+                              >
+                                <ThemedText>{val}%</ThemedText>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
                         <View style={styles.categoryAddRow}>
                           <TextInput
                             style={styles.categoryInput}

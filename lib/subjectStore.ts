@@ -1,14 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type SubjectSetting = { name: string; color: string; categories: string[] };
+export type SubjectSetting = { name: string; color: string; categories: string[]; saturation?: number };
 const SUBJECTS_KEY = 'custom_subjects';
 const FALLBACK_COLOR = '#6C7BFA';
 const DEFAULT_SUBJECTS: SubjectSetting[] = [
-  { name: '数学', color: '#6C7BFA', categories: [] },
-  { name: '英語', color: '#4CAF50', categories: [] },
-  { name: '国語', color: '#9C27B0', categories: [] },
-  { name: '理科', color: '#FF9800', categories: [] },
-  { name: '社会', color: '#03A9F4', categories: [] },
+  { name: '数学', color: '#6C7BFA', categories: [], saturation: 100 },
+  { name: '英語', color: '#4CAF50', categories: [], saturation: 100 },
+  { name: '国語', color: '#9C27B0', categories: [], saturation: 100 },
+  { name: '理科', color: '#FF9800', categories: [], saturation: 100 },
+  { name: '社会', color: '#03A9F4', categories: [], saturation: 100 },
 ];
 
 export async function getSubjectSettings(): Promise<SubjectSetting[]> {
@@ -18,10 +18,11 @@ export async function getSubjectSettings(): Promise<SubjectSetting[]> {
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed)) return [];
     return parsed.map(item => typeof item === 'string'
-      ? { name: item, color: FALLBACK_COLOR, categories: [] }
+      ? { name: item, color: FALLBACK_COLOR, categories: [], saturation: 100 }
       : {
           name: String(item.name ?? ''),
           color: item.color || FALLBACK_COLOR,
+          saturation: typeof item.saturation === 'number' ? item.saturation : 100,
           categories: Array.isArray(item.categories)
             ? item.categories.map((name: unknown) => String(name).trim()).filter(Boolean)
             : [],
@@ -39,18 +40,18 @@ async function save(settings: SubjectSetting[]) {
   return settings;
 }
 
-export async function addSubject(name: string, color = FALLBACK_COLOR) {
+export async function addSubject(name: string, color = FALLBACK_COLOR, saturation = 100) {
   const subject = name.trim();
   const settings = await getSubjectSettings();
   if (!subject || settings.some(item => item.name === subject)) return settings;
-  return save([...settings, { name: subject, color, categories: [] }]);
+  return save([...settings, { name: subject, color, categories: [], saturation }]);
 }
 
-export async function updateSubject(oldName: string, name: string, color: string) {
+export async function updateSubject(oldName: string, name: string, color: string, saturation = 100) {
   const subject = name.trim();
   const settings = await getSubjectSettings();
   if (!subject || settings.some(item => item.name === subject && item.name !== oldName)) return settings;
-  return save(settings.map(item => item.name === oldName ? { ...item, name: subject, color } : item));
+  return save(settings.map(item => item.name === oldName ? { ...item, name: subject, color, saturation } : item));
 }
 
 export async function deleteSubject(name: string) {

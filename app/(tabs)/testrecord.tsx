@@ -36,6 +36,153 @@ type SubjectData = {
   todos: Todo[];
 };
 
+const adjustColorForSelectedSubject = (hex: string, saturationScale = 0.55, lightnessScale = 0.8) => {
+  const normalized = hex.replace('#', '');
+  const fullHex = normalized.length === 3
+    ? normalized.split('').map(ch => ch + ch).join('')
+    : normalized;
+
+  if (!/^[0-9a-fA-F]{6}$/.test(fullHex)) return hex;
+
+  const value = parseInt(fullHex, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const d = max - min;
+
+  let h = 0;
+  const l = (max + min) / 2;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+
+  if (d !== 0) {
+    switch (max) {
+      case rr:
+        h = ((gg - bb) / d) % 6;
+        break;
+      case gg:
+        h = (bb - rr) / d + 2;
+        break;
+      default:
+        h = (rr - gg) / d + 4;
+        break;
+    }
+  }
+
+  h *= 60;
+  if (h < 0) h += 360;
+
+  const nextS = Math.max(0, Math.min(1, s * saturationScale));
+  const nextL = Math.max(0, Math.min(1, l * lightnessScale));
+
+  const c = (1 - Math.abs(2 * nextL - 1)) * nextS;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = nextL - c / 2;
+
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+
+  if (h >= 0 && h < 60) {
+    r1 = c; g1 = x; b1 = 0;
+  } else if (h >= 60 && h < 120) {
+    r1 = x; g1 = c; b1 = 0;
+  } else if (h >= 120 && h < 180) {
+    r1 = 0; g1 = c; b1 = x;
+  } else if (h >= 180 && h < 240) {
+    r1 = 0; g1 = x; b1 = c;
+  } else if (h >= 240 && h < 300) {
+    r1 = x; g1 = 0; b1 = c;
+  } else {
+    r1 = c; g1 = 0; b1 = x;
+  }
+
+  const toHex = (channel: number) => Math.round((channel + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
+};
+
+const blendHexWithWhite = (hex: string, amount = 0.7) => {
+  const normalized = hex.replace('#', '');
+  const fullHex = normalized.length === 3
+    ? normalized.split('').map(ch => ch + ch).join('')
+    : normalized;
+
+  if (!/^[0-9a-fA-F]{6}$/.test(fullHex)) return hex;
+
+  const value = parseInt(fullHex, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+
+  const mix = (c: number) => Math.round((1 - amount) * c + amount * 255);
+
+  const toHex = (v: number) => v.toString(16).padStart(2, '0');
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+};
+
+// HSL helpers
+const hexToHsl = (hex: string) => {
+  const normalized = hex.replace('#', '').slice(0, 6);
+  const num = parseInt(normalized, 16);
+  const r = ((num >> 16) & 255) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    switch (max) {
+      case r:
+        h = ((g - b) / d) % 6;
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      default:
+        h = (r - g) / d + 4;
+        break;
+    }
+  }
+  h = (h * 60 + 360) % 360;
+  return { h, s, l };
+};
+
+const hslToHex = (h: number, s: number, l: number) => {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r1 = 0, g1 = 0, b1 = 0;
+  if (h >= 0 && h < 60) { r1 = c; g1 = x; b1 = 0; }
+  else if (h >= 60 && h < 120) { r1 = x; g1 = c; b1 = 0; }
+  else if (h >= 120 && h < 180) { r1 = 0; g1 = c; b1 = x; }
+  else if (h >= 180 && h < 240) { r1 = 0; g1 = x; b1 = c; }
+  else if (h >= 240 && h < 300) { r1 = x; g1 = 0; b1 = c; }
+  else { r1 = c; g1 = 0; b1 = x; }
+  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
+};
+
+// Build UI accent color: use subject hue, user-selected saturation, and keep lightness from default accent
+const buildUiAccentColor = (subjectHex: string, saturationPercent: number) => {
+  try {
+    const subjectHsl = hexToHsl(subjectHex);
+    const baseAccent = hexToHsl('#aaacf5');
+    const s = Math.max(0, Math.min(1, (saturationPercent ?? 100) / 100));
+    return hslToHex(subjectHsl.h, s, baseAccent.l);
+  } catch (e) {
+    return subjectHex;
+  }
+};
+
 export default function TestOverviewScreen() {
   const [selectedSubject, setSelectedSubject] = useState<string>('数学');
   const [subjectTabs, setSubjectTabs] = useState<SubjectTab[]>([]);
@@ -218,6 +365,7 @@ useEffect(() => {
               id: category,
               label: category,
               color: setting.color,
+              saturation: typeof setting.saturation === 'number' ? setting.saturation : 100,
               parentName: setting.name,
             }));
           }
@@ -226,6 +374,7 @@ useEffect(() => {
             id: setting.name,
             label: setting.name,
             color: setting.color,
+            saturation: typeof setting.saturation === 'number' ? setting.saturation : 100,
             parentName: setting.name,
           }];
         });
@@ -249,6 +398,14 @@ useEffect(() => {
   );
 
   const current = subjectData[selectedSubject] ?? { memoText: '', todos: [] };
+  const tabInfo = subjectTabs.find(tab => tab.id === selectedSubject);
+  const selectedSubjectColor = tabInfo?.color ?? '#6C7BFA';
+  const selectedSubjectSaturation = tabInfo?.saturation ?? 100;
+  // make the screen background more pastel: reduce saturation then blend heavily with white
+  const baseBg = adjustColorForSelectedSubject(selectedSubjectColor, 0.25, 1.0);
+  const screenBackgroundColor = blendHexWithWhite(baseBg, 0.9);
+  const selectedProgressColor = selectedSubjectColor; // keep progress color true to subject color
+  const uiAccentColor = buildUiAccentColor(selectedSubjectColor, selectedSubjectSaturation);
 
   /* ===== 進捗 ===== */
   const totalTasks = current.todos.length;
@@ -323,18 +480,18 @@ useEffect(() => {
   return (
     <PaperProvider>
       <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: screenBackgroundColor }]}
       contentContainerStyle={{ padding: 18, flexGrow: 1 }}
       keyboardShouldPersistTaps="handled"
     >
       {/* 上段 */}
       <View style={[styles.headerRow, isMobile && styles.headerRowMobile]}>
         <View style={isMobile ? styles.fullWidth : undefined}>
-          <ThemedText style={styles.testTitle}>次のテスト</ThemedText>
+          <ThemedText style={[styles.testTitle, { color: '#000' }]}>次のテスト</ThemedText>
 
           <View style={styles.dateRow}>
             <TouchableOpacity
-              style={[styles.dateInput, isDateFocused && styles.dateInputActive]}
+              style={[styles.dateInput, isDateFocused && styles.dateInputActive, { borderColor: selectedSubjectColor }]}
               activeOpacity={0.8}
               onPress={openCalendar}
             >
@@ -342,24 +499,26 @@ useEffect(() => {
                 {testDateText || '日付を選択'}
               </ThemedText>
             </TouchableOpacity>
+            
             {daysLeft !== null && (
-              <ThemedText style={styles.daysLeft}>
+              <ThemedText style={[styles.daysLeft, { color: '#000' }]}>
                 残り <ThemedText style={styles.daysLeftNumber}>{daysLeft}</ThemedText> 日
               </ThemedText>
             )}
           </View>
         </View>
 
-        <View style={[styles.goalBox, isMobile && styles.goalBoxMobile]}>
-          <ThemedText style={styles.goalLabel}>目標</ThemedText>
+        <View style={[styles.goalBox, isMobile && styles.goalBoxMobile, { borderColor: selectedSubjectColor }]}> 
+          <ThemedText style={[styles.goalLabel, { color: '#000' }]}>目標</ThemedText>
           <View
             style={[
               styles.goalInputContainer,
               isGoalFocused && styles.goalInputContainerActive,
+              { borderColor: selectedSubjectColor },
             ]}
           >
             <TextInput
-              style={styles.goalInput}
+              style={[styles.goalInput, { borderColor: 'transparent' }]}
               multiline
               placeholder="今回のテストの目標"
               placeholderTextColor="#9ca3af"
@@ -404,15 +563,15 @@ onConfirm={({ date }) => {
           {subjectTabs.map(tab => {
             const isActive = selectedSubject === tab.id;
             return (
-              <TouchableOpacity
-                key={tab.id}
-                style={[
-                  styles.subjectTab,
-                  isActive && styles.subjectTabActive,
-                  isActive && { backgroundColor: tab.color },
-                ]}
-                onPress={() => setSelectedSubject(tab.id)}
-              >
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[
+                    styles.subjectTab,
+                    isActive && styles.subjectTabActive,
+                    isActive && { backgroundColor: tab.color },
+                  ]}
+                  onPress={() => setSelectedSubject(tab.id)}
+                >
                 <ThemedText
                   style={[
                     styles.subjectText,
@@ -437,7 +596,7 @@ onConfirm={({ date }) => {
             <View
               style={[
                 styles.progressBarFill,
-                { width: `${progressPercent}%` },
+                { width: `${progressPercent}%`, backgroundColor: selectedProgressColor },
               ]}
             />
           </View>
@@ -448,18 +607,18 @@ onConfirm={({ date }) => {
 
         {/* 右 */}
         <View style={[styles.contentArea, isMobile && styles.contentAreaMobile]}>
-          <View style={[styles.todoBox, isMobile && styles.sectionBoxMobile]}>
+          <View style={[styles.todoBox, isMobile && styles.sectionBoxMobile, { borderColor: selectedSubjectColor }]}> 
             <View style={styles.todoHeader}>
-              <ThemedText style={styles.boxTitle}>やる事</ThemedText>
+              <ThemedText style={[styles.boxTitle, { color: '#000' }]}>やる事</ThemedText>
               <View style={styles.todoActionRow}>
                 <TouchableOpacity
-                  style={styles.addButton}
+                  style={[styles.addButton, { backgroundColor: uiAccentColor }]}
                   onPress={addTodo}
                 >
                   <ThemedText style={styles.buttonText}>追加</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.addButton, styles.todoActionButton]}
+                  style={[styles.addButton, styles.todoActionButton, { backgroundColor: uiAccentColor }]}
                   onPress={() => setIsEditMode(p => !p)}
                 >
                   <ThemedText style={styles.buttonText}>{isEditMode ? '完了' : '編集'}</ThemedText>
@@ -482,6 +641,7 @@ onConfirm={({ date }) => {
                 <TextInput
                   style={[
                     styles.todoInput,
+                    { borderWidth: 1, borderColor: selectedSubjectColor, borderRadius: 8, paddingHorizontal: 8 },
                     todo.done &&
                       !isEditMode && {
                         textDecorationLine: 'line-through',
@@ -516,7 +676,8 @@ onConfirm={({ date }) => {
             ))}
           </View>
 
-          <View style={[styles.memoBox, isMobile && styles.sectionBoxMobile]}>
+          <View style={[styles.memoBox, isMobile && styles.sectionBoxMobile, { borderColor: selectedSubjectColor }]}
+          >
             <TextInput
               style={styles.memoInput}
               multiline
@@ -601,7 +762,7 @@ dateInputPlaceholder: {
   daysLeftNumber: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#8a3a82',
+    color: '#000',
   },
 
   goalBox: {
