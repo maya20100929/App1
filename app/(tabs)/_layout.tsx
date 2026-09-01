@@ -6,8 +6,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
 type PrimaryDestination = {
-  label: '今日' | '記録' | '科目' | 'カレンダー' | 'アタック';
-  path: '/Homescreen' | '/oldrecord' | '/subjects' | '/calendar' | '/attack';
+  label: '今日' | '記録' | '科目' | 'カレンダー' | 'テスト' | 'アタック';
+  path: '/Homescreen' | '/oldrecord' | '/subjects' | '/calendar' | '/testrecord' | '/attack';
 };
 
 const primaryDestinations: PrimaryDestination[] = [
@@ -15,11 +15,13 @@ const primaryDestinations: PrimaryDestination[] = [
   { label: '記録', path: '/oldrecord' },
   { label: '科目', path: '/subjects' },
   { label: 'カレンダー', path: '/calendar' },
+  { label: 'テスト', path: '/testrecord' },
   { label: 'アタック', path: '/attack' },
 ];
 
 const getSection = (pathname: string): PrimaryDestination['label'] => {
   if (pathname.startsWith('/calendar')) return 'カレンダー';
+  if (pathname === '/testrecord') return 'テスト';
   if (pathname === '/attack') return 'アタック';
   if (pathname.startsWith('/oldrecord') || pathname === '/record') return '記録';
   if (pathname.startsWith('/subjects')) return '科目';
@@ -104,13 +106,16 @@ const styles = StyleSheet.create({
   primaryNavigation: {
     flexDirection: 'row',
     alignSelf: 'center',
-    gap: 8,
+    gap: 6,
+    width: '100%',
+    maxWidth: 620,
   },
   navigationItem: {
-    minWidth: 72,
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     borderRadius: 18,
-    paddingHorizontal: 14,
+    paddingHorizontal: 8,
     paddingVertical: 8,
   },
   navigationItemCurrent: { backgroundColor: '#7464E8' },
