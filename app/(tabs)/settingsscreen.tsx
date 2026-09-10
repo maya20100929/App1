@@ -42,7 +42,6 @@ export default function SettingsScreen() {
   const [editingCategory, setEditingCategory] = useState<{ subjectName: string; categoryName: string } | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState('');
   const [newCategory, setNewCategory] = useState('');
-  const [graphColor, setGraphColor] = useState('#6C7BFA');
   const unitOptions = ['問', 'ページ', '語', 'セット', '分', 'その他'];  // 単位選択肢
 
   // 単位設定を読み込む
@@ -90,12 +89,10 @@ export default function SettingsScreen() {
       const savedName = await AsyncStorage.getItem('userName');
       const savedGrade = await AsyncStorage.getItem('grade');
       const savedSubjects = await getSubjectSettings();
-      const savedGraphColor = await AsyncStorage.getItem('graphColor');
 
       if (savedName) setUserName(savedName);
       if (savedGrade) setGrade(savedGrade);
       setSubjects(savedSubjects);
-      if (savedGraphColor) setGraphColor(savedGraphColor);
       if (saved) {
         const d = new Date(saved);
         setLastLogin(
@@ -175,8 +172,7 @@ export default function SettingsScreen() {
   };
 
   const handleSelectGraphColor = async (color: string) => {
-    setGraphColor(color);
-    await AsyncStorage.setItem('graphColor', color);
+    // graph color setting removed
   };
 
   // テーマカラー保存
@@ -216,7 +212,7 @@ export default function SettingsScreen() {
     // { section: 'プロフィール', label: '名前・学年を設定', type: 'profile' },
     { section: 'ポイント設定', label: 'ポイント計算ルール', type: 'unit' },
     { section: '教科設定', label: '教科を追加', type: 'subject' },
-    { section: 'グラフ設定', label: 'グラフの色', type: 'graphColor' },
+    
     // { section: 'テーマカラー', label: 'テーマカラー', type: 'color' },
     // { section: '利用履歴', label: '最終ログイン', type: 'text' },
     // { section: '通知', label: '通知オン/オフ（後で実装）', type: 'text' },
@@ -513,22 +509,7 @@ export default function SettingsScreen() {
           );
         }
 
-        if (item.type === 'graphColor') {
-          return (
-            <View key={index}>
-              <ThemedText style={styles.sectionTitle}>{item.label}</ThemedText>
-              <View style={styles.colorRow}>
-                {themeColors.map(color => (
-                  <TouchableOpacity
-                    key={color}
-                    style={[styles.colorDot, { backgroundColor: color }, graphColor === color && styles.selectedDot]}
-                    onPress={() => handleSelectGraphColor(color)}
-                  />
-                ))}
-              </View>
-            </View>
-          );
-        }
+        
 
         if (item.type === 'color') {
           // テーマカラー
@@ -731,10 +712,10 @@ export default function SettingsScreen() {
                 第7条（プライバシーポリシーの変更）{'\n'}
                 本ポリシーは、必要に応じて変更されることがあります。変更後のプライバシーポリシーは、本アプリ上に掲示された時点で効力を生じます。{'\n'}
                 {'\n'}
-                第8条（お問い合わせ窓口）{'\n'}
+                {/* 第8条（お問い合わせ窓口）{'\n'}
                 本ポリシーに関するお問い合わせは、以下の窓口までお願いします。{'\n'}
                 ○○株式会社{'\n'}
-                E-mail: support@example.com{'\n'}
+                E-mail: support@example.com{'\n'} */}
               </ThemedText>
             </ScrollView>
             <TouchableOpacity
@@ -752,7 +733,7 @@ export default function SettingsScreen() {
 
 // --- スタイルはそのまま ---
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 20, backgroundColor: '#FAF9FF', width: '100%', maxWidth: 760, alignSelf: 'center' },
 
   searchInput: {
     backgroundColor: '#fff',
@@ -794,7 +775,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#aaacf5ff',
+    borderColor: '#E1DCF2',
   },
 
   boxText: { fontSize: 16, color: '#aaacf5ff' },

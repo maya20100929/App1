@@ -2,27 +2,27 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
 import { Picker } from '@react-native-picker/picker';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
-  addDoc,
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  updateDoc
+    addDoc,
+    collection,
+    doc,
+    onSnapshot,
+    query,
+    updateDoc
 } from 'firebase/firestore';
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  Animated,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Alert,
+    Animated,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 import { auth, db } from '../../lib/firebase';
 import { getCustomMaterialsBySubject, getUnitPointRulesBySubject, saveCustomMaterial, saveRecord, type Subject } from '../../lib/recordStore';
@@ -107,6 +107,7 @@ const HomeScreen: FC = () => {
   const [subjectSettings, setSubjectSettings] = useState<SubjectSetting[]>([]);
   const [dayBoundaryTick, setDayBoundaryTick] = useState(0);
   const [isAttackRecordMode, setIsAttackRecordMode] = useState(false);
+  const pendingAttackRef = React.useRef<{ goal: string; duration: string } | null>(null);
 
   useEffect(() => {
     if (params.attack !== '1') return;
@@ -117,7 +118,46 @@ const HomeScreen: FC = () => {
     setDurationMinutes(params.attackDuration ?? '');
     setIsAttackRecordMode(true);
     setIsRecordModalVisible(true);
+    // mark pending attack so we can auto-save when ready
+    pendingAttackRef.current = { goal: params.attackGoal ?? 'タイムアタック', duration: params.attackDuration ?? '' };
   }, [params.attack, params.attackGoal, params.attackDuration]);
+
+  // ルートのクエリが残っている間だけ 1 回だけ保存する
+  useEffect(() => {
+    if (params.attack !== '1') return;
+
+    const pending = pendingAttackRef.current;
+    if (!pending) return;
+
+    (async () => {
+      try {
+        const record = {
+          date: getJapanDateString(),
+          subject: subject || '数学',
+          material: pending.goal || 'タイムアタック',
+          content: pending.goal || 'タイムアタック',
+          amount: 1,
+          unit: '回',
+          point: 0,
+          durationMinutes: Number(pending.duration) || undefined,
+        };
+
+        const id = await saveRecord(record as any);
+        console.log('Auto-saved attack record', { id, record });
+        pendingAttackRef.current = null;
+        setIsAttackRecordMode(false);
+        setIsRecordModalVisible(false);
+        router.setParams({
+          attack: undefined,
+          attackGoal: undefined,
+          attackDuration: undefined,
+        });
+        Alert.alert('記録を保存しました');
+      } catch (e) {
+        console.warn('auto-save attack record failed', e);
+      }
+    })();
+  }, [params.attack, subject, params.attackGoal, params.attackDuration]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -1363,17 +1403,21 @@ useEffect(() => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, padding: 16, backgroundColor: '#FAF9FF', width: '100%', maxWidth: 760, alignSelf: 'center' },
 
   mobileContainer: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#FAF9FF',
   },
 
   mobileContent: {
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
 
   mobileHeader: {
@@ -1838,7 +1882,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
-  pcContainer: { flex: 1, flexDirection: 'row' },
+  pcContainer: { flex: 1, flexDirection: 'row', justifyContent: 'center', backgroundColor: '#FAF9FF' },
 
   sideMenu: {
     width: 200,
@@ -1848,8 +1892,11 @@ const styles = StyleSheet.create({
   },
 
   mainArea: {
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 1,
     padding: 16,
+    width: '100%',
+    maxWidth: 760,
   },
 
   topRow: {

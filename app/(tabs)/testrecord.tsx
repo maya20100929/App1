@@ -22,6 +22,7 @@ type SubjectTab = {
   id: string;
   label: string;
   color: string;
+  saturation: number;
   parentName: string;
 };
 
@@ -34,96 +35,6 @@ type Todo = {
 type SubjectData = {
   memoText: string;
   todos: Todo[];
-};
-
-const adjustColorForSelectedSubject = (hex: string, saturationScale = 0.55, lightnessScale = 0.8) => {
-  const normalized = hex.replace('#', '');
-  const fullHex = normalized.length === 3
-    ? normalized.split('').map(ch => ch + ch).join('')
-    : normalized;
-
-  if (!/^[0-9a-fA-F]{6}$/.test(fullHex)) return hex;
-
-  const value = parseInt(fullHex, 16);
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-
-  const rr = r / 255;
-  const gg = g / 255;
-  const bb = b / 255;
-
-  const max = Math.max(rr, gg, bb);
-  const min = Math.min(rr, gg, bb);
-  const d = max - min;
-
-  let h = 0;
-  const l = (max + min) / 2;
-  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-
-  if (d !== 0) {
-    switch (max) {
-      case rr:
-        h = ((gg - bb) / d) % 6;
-        break;
-      case gg:
-        h = (bb - rr) / d + 2;
-        break;
-      default:
-        h = (rr - gg) / d + 4;
-        break;
-    }
-  }
-
-  h *= 60;
-  if (h < 0) h += 360;
-
-  const nextS = Math.max(0, Math.min(1, s * saturationScale));
-  const nextL = Math.max(0, Math.min(1, l * lightnessScale));
-
-  const c = (1 - Math.abs(2 * nextL - 1)) * nextS;
-  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-  const m = nextL - c / 2;
-
-  let r1 = 0;
-  let g1 = 0;
-  let b1 = 0;
-
-  if (h >= 0 && h < 60) {
-    r1 = c; g1 = x; b1 = 0;
-  } else if (h >= 60 && h < 120) {
-    r1 = x; g1 = c; b1 = 0;
-  } else if (h >= 120 && h < 180) {
-    r1 = 0; g1 = c; b1 = x;
-  } else if (h >= 180 && h < 240) {
-    r1 = 0; g1 = x; b1 = c;
-  } else if (h >= 240 && h < 300) {
-    r1 = x; g1 = 0; b1 = c;
-  } else {
-    r1 = c; g1 = 0; b1 = x;
-  }
-
-  const toHex = (channel: number) => Math.round((channel + m) * 255).toString(16).padStart(2, '0');
-  return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
-};
-
-const blendHexWithWhite = (hex: string, amount = 0.7) => {
-  const normalized = hex.replace('#', '');
-  const fullHex = normalized.length === 3
-    ? normalized.split('').map(ch => ch + ch).join('')
-    : normalized;
-
-  if (!/^[0-9a-fA-F]{6}$/.test(fullHex)) return hex;
-
-  const value = parseInt(fullHex, 16);
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-
-  const mix = (c: number) => Math.round((1 - amount) * c + amount * 255);
-
-  const toHex = (v: number) => v.toString(16).padStart(2, '0');
-  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
 };
 
 // HSL helpers
@@ -186,7 +97,7 @@ const buildUiAccentColor = (subjectHex: string, saturationPercent: number) => {
 export default function TestOverviewScreen() {
   const [selectedSubject, setSelectedSubject] = useState<string>('数学');
   const [subjectTabs, setSubjectTabs] = useState<SubjectTab[]>([]);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [isGoalFocused, setIsGoalFocused] = useState(false);
   const [isDateFocused, setIsDateFocused] = useState(false);
 
@@ -351,6 +262,37 @@ useEffect(() => {
 
   const [subjectData, setSubjectData] = useState<Record<string, SubjectData>>({});
 
+  // keep last-saved snapshot to avoid writing unchanged data repeatedly
+  const lastSavedSubjectDataJson = React.useRef<string>('');
+
+  // persist subjectData to user doc under `testTodos`
+  const saveSubjectData = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!user) {
+      if (!silent) Alert.alert('ログインが必要', 'やることを保存するにはログインしてください。');
+      return;
+    }
+
+    try {
+      const payload: any = {};
+      // include existing test metadata as well
+      if (goalText && goalText.trim() !== '') payload.testGoal = goalText;
+      if (testDateText) payload.testDate = testDateText;
+      // always include subjectData
+      payload.testTodos = subjectData;
+
+      await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+
+      // update last saved snapshot
+      lastSavedSubjectDataJson.current = JSON.stringify(subjectData || {});
+
+      if (!silent) Alert.alert('保存しました');
+    } catch (e) {
+      console.warn('saveSubjectData failed', e);
+      if (!silent) Alert.alert('保存に失敗しました');
+    }
+  };
+
   const { width } = useWindowDimensions();
   const isMobile = width <= 600;
 
@@ -397,13 +339,43 @@ useEffect(() => {
     }, [selectedSubject])
   );
 
+  // listen for user doc changes and restore saved todos if present
+  useEffect(() => {
+    if (!user) return;
+    const userRef = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(userRef, snap => {
+      const data = snap.data();
+      if (data?.testTodos) {
+        try {
+          setSubjectData(prev => ({ ...(prev || {}), ...(data.testTodos || {}) }));
+          lastSavedSubjectDataJson.current = JSON.stringify(data.testTodos || {});
+        } catch (e) {
+          console.warn('failed to parse testTodos from user doc', e);
+        }
+      }
+    });
+    return () => unsub();
+  }, [user]);
+
+  // auto-save subjectData when it changes (debounced + deduped)
+  useEffect(() => {
+    if (!user) return;
+    const json = JSON.stringify(subjectData || {});
+    if (json === lastSavedSubjectDataJson.current) return;
+
+    const t = setTimeout(() => {
+      saveSubjectData({ silent: true });
+    }, 800);
+
+    return () => clearTimeout(t);
+  }, [subjectData, user]);
+
   const current = subjectData[selectedSubject] ?? { memoText: '', todos: [] };
   const tabInfo = subjectTabs.find(tab => tab.id === selectedSubject);
   const selectedSubjectColor = tabInfo?.color ?? '#6C7BFA';
   const selectedSubjectSaturation = tabInfo?.saturation ?? 100;
   // make the screen background more pastel: reduce saturation then blend heavily with white
-  const baseBg = adjustColorForSelectedSubject(selectedSubjectColor, 0.25, 1.0);
-  const screenBackgroundColor = blendHexWithWhite(baseBg, 0.9);
+  const screenBackgroundColor = '#FAF9FF';
   const selectedProgressColor = selectedSubjectColor; // keep progress color true to subject color
   const uiAccentColor = buildUiAccentColor(selectedSubjectColor, selectedSubjectSaturation);
 
@@ -430,7 +402,6 @@ useEffect(() => {
   };
 
   const toggleTodo = (id: string) => {
-    if (isEditMode) return;
     setSubjectData(prev => ({
       ...prev,
       [selectedSubject]: {
@@ -612,48 +583,39 @@ onConfirm={({ date }) => {
               <ThemedText style={[styles.boxTitle, { color: '#000' }]}>やる事</ThemedText>
               <View style={styles.todoActionRow}>
                 <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: uiAccentColor }]}
+                  style={[styles.addButton, { backgroundColor: uiAccentColor, paddingHorizontal: 14 }]}
                   onPress={addTodo}
                 >
-                  <ThemedText style={styles.buttonText}>追加</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.addButton, styles.todoActionButton, { backgroundColor: uiAccentColor }]}
-                  onPress={() => setIsEditMode(p => !p)}
-                >
-                  <ThemedText style={styles.buttonText}>{isEditMode ? '完了' : '編集'}</ThemedText>
+                  <ThemedText style={[styles.buttonText, { fontSize: 20 }]}>＋</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
 
             {current.todos.map((todo, index) => (
               <View key={todo.id} style={styles.todoItem}>
-                {!isEditMode && (
-                  <TouchableOpacity
-                    onPress={() => toggleTodo(todo.id)}
-                  >
-                    <ThemedText style={styles.checkbox}>
-                      {todo.done ? '☑' : '☐'}
-                    </ThemedText>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity onPress={() => {
+                  // focus the input by setting editing id; the TextInput itself will be focused by user interaction
+                }}
+                >
+                  <ThemedText style={styles.checkbox}>{todo.done ? '☑' : '☐'}</ThemedText>
+                </TouchableOpacity>
 
                 <TextInput
                   style={[
                     styles.todoInput,
                     { borderWidth: 1, borderColor: selectedSubjectColor, borderRadius: 8, paddingHorizontal: 8 },
                     todo.done &&
-                      !isEditMode && {
+                      editingTodoId !== todo.id && {
                         textDecorationLine: 'line-through',
                       },
                   ]}
                   value={todo.text}
-                  onChangeText={text =>
-                    updateTodoText(todo.id, text)
-                  }
+                  onChangeText={text => updateTodoText(todo.id, text)}
+                  onFocus={() => setEditingTodoId(todo.id)}
+                  onBlur={() => setEditingTodoId(null)}
                 />
 
-                {isEditMode && (
+                {editingTodoId === todo.id && (
                   <View style={styles.editButtons}>
                     <TouchableOpacity
                       onPress={() => moveTodo(index, 'up')}
@@ -705,7 +667,7 @@ onConfirm={({ date }) => {
 
 /* ===== styles ===== */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 18, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 18, backgroundColor: '#FAF9FF', width: '100%', maxWidth: 760, alignSelf: 'center' },
 
   headerRow: {
     flexDirection: 'row',

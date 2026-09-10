@@ -146,6 +146,29 @@ export default function OldRecordScreen() {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [records]);
 
+  // 最新の記録日を基準に、直近30日分だけをグラフに表示する。
+  const recentDailyPoints = useMemo(() => {
+    const latest = dailyPoints.at(-1);
+    if (!latest) return [];
+    const start = new Date(`${latest.date}T00:00:00`);
+    start.setDate(start.getDate() - 29);
+    return dailyPoints.filter(item => new Date(`${item.date}T00:00:00`) >= start);
+  }, [dailyPoints]);
+
+  const recentDailyDurations = useMemo(() => {
+    const latest = dailyDurations[0];
+    if (!latest) return [];
+    const start = new Date(`${latest.date}T00:00:00`);
+    start.setDate(start.getDate() - 29);
+    return dailyDurations
+      .filter(item => new Date(`${item.date}T00:00:00`) >= start)
+      .reverse();
+  }, [dailyDurations]);
+
+  // カード内に必ず収まるよう、画面幅に応じてグラフの幅を縮める。
+  const summaryChartWidth = Math.max(160, Math.min(isPC ? 190 : width - 64, 280));
+  const detailChartWidth = Math.max(200, Math.min(width - 64, 480));
+
   const subjectPoints = useMemo(() => {
     const map: Record<string, number> = {};
     records.forEach(r => {
@@ -202,22 +225,24 @@ export default function OldRecordScreen() {
                 });
               }}
             >
-              <ThemedText style={styles.sectionTitle}>日別 推移</ThemedText>
-              <Svg width={280} height={120}>
+              <ThemedText style={styles.sectionTitle}>日別 推移（直近1か月）</ThemedText>
+              <Svg width={summaryChartWidth} height={120}>
                 {(() => {
-                  const maxPoint = Math.max(...dailyPoints.map(d => d.point), 1);
+                  const maxPoint = Math.max(...recentDailyPoints.map(d => d.point), 1);
                   const scale = 80 / maxPoint; // 80px の高さにスケール
+                  const xPadding = 10;
+                  const xStep = (summaryChartWidth - xPadding * 2) / Math.max(recentDailyPoints.length - 1, 1);
                   return (
                     <>
-                      <Polyline
-                        points={dailyPoints
-                          .map((d, i) => `${i * 80 + 20},${100 - d.point * scale}`)
+                      {recentDailyPoints.length > 1 && <Polyline
+                        points={recentDailyPoints
+                          .map((d, i) => `${xPadding + i * xStep},${100 - d.point * scale}`)
                           .join(' ')}
                         fill="none"
                         stroke={graphColor}
                         strokeWidth="3"
-                      />
-                      <Line x1="10" y1="100" x2="290" y2="100" stroke="#ccc" />
+                      />}
+                      <Line x1={xPadding} y1="100" x2={summaryChartWidth - xPadding} y2="100" stroke="#ccc" />
                     </>
                   );
                 })()}
@@ -227,51 +252,30 @@ export default function OldRecordScreen() {
             {/* 科目別 */}
             <TouchableOpacity
               style={styles.card}
-              onPress={() => router.push('/oldrecord/subject')}
+              onPress={() => router.push('/subjects')}
             >
               <ThemedText style={styles.sectionTitle}>科目別</ThemedText>
-              <Svg width={200} height={200} viewBox="0 0 200 200">
-                {(() => {
-                  const cx = 100;
-                  const cy = 100;
-                  const radius = 60;
-                  let currentAngle = -Math.PI / 2; // 12 o'clock position
-
-                  return pieData.map(([subject, point]) => {
-                    if (point === 0) return null;
-
-                    const sliceAngle = (point / totalPoint) * 2 * Math.PI;
-                    const startAngle = currentAngle;
-                    const endAngle = currentAngle + sliceAngle;
-
-                    const largeArc = sliceAngle > Math.PI ? 1 : 0;
-
-                    const x1 = cx + radius * Math.cos(startAngle);
-                    const y1 = cy + radius * Math.sin(startAngle);
-                    const x2 = cx + radius * Math.cos(endAngle);
-                    const y2 = cy + radius * Math.sin(endAngle);
-
-                    const pathData = [
-                      `M ${cx} ${cy}`,
-                      `L ${x1} ${y1}`,
-                      `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-                      'Z',
-                    ].join(' ');
-
-                    currentAngle = endAngle;
-
-                    return (
-                      <Path
-                        key={subject}
-                        d={pathData}
-                        fill={subjectColors[subject] ?? graphColor}
-                        stroke="#fff"
-                        strokeWidth="2"
-                      />
-                    );
-                  });
-                })()}
-              </Svg>
+              <View style={styles.subjectList}>
+                {pieData.length === 0 ? (
+                  <ThemedText style={styles.subjectListEmpty}>記録なし</ThemedText>
+                ) : (
+                  [...pieData]
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 4)
+                    .map(([subject, point]) => (
+                      <View key={subject} style={styles.subjectRow}>
+                        <View
+                          style={[
+                            styles.subjectDot,
+                            { backgroundColor: subjectColors[subject] ?? graphColor },
+                          ]}
+                        />
+                        <ThemedText style={styles.subjectName}>{subject}</ThemedText>
+                        <ThemedText style={styles.subjectPoint}>{point} pt</ThemedText>
+                      </View>
+                    ))
+                )}
+              </View>
             </TouchableOpacity>
 
             {/* 教材 */}
@@ -296,24 +300,25 @@ export default function OldRecordScreen() {
           </View>
 
           <View style={styles.timeBreakdownBox}>
-            <ThemedText style={styles.timeBreakdownTitle}>1日ごとの学習時間（推移）</ThemedText>
+            <ThemedText style={styles.timeBreakdownTitle}>1日ごとの学習時間（直近1か月）</ThemedText>
             {(() => {
-              const trendData = [...dailyDurations].reverse();
+              const trendData = recentDailyDurations;
               const maxMinutes = Math.max(...trendData.map(item => item.minutes), 1);
-              const xStep = 240 / Math.max(trendData.length - 1, 1);
+              const xPadding = 14;
+              const xStep = (detailChartWidth - xPadding * 2) / Math.max(trendData.length - 1, 1);
 
               return (
                 <>
-                  <Svg width={280} height={130}>
-                    <Polyline
+                  <Svg width={detailChartWidth} height={130}>
+                    {trendData.length > 1 && <Polyline
                       points={trendData
-                        .map((item, index) => `${20 + index * xStep},${105 - (item.minutes / maxMinutes) * 80}`)
+                        .map((item, index) => `${xPadding + index * xStep},${105 - (item.minutes / maxMinutes) * 80}`)
                         .join(' ')}
                       fill="none"
                       stroke={graphColor}
                       strokeWidth="3"
-                    />
-                    <Line x1="20" y1="105" x2="260" y2="105" stroke="#d9d3ed" />
+                    />}
+                    <Line x1={xPadding} y1="105" x2={detailChartWidth - xPadding} y2="105" stroke="#d9d3ed" />
                   </Svg>
                   {trendData.length > 0 && (
                     <View style={styles.timeTrendCaption}>
@@ -345,16 +350,18 @@ export default function OldRecordScreen() {
    styles
 ===================== */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 16, backgroundColor: '#FAF9FF', width: '100%', maxWidth: 760, alignSelf: 'center' },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
   loadingText: { fontSize: 16, textAlign: 'center', marginTop: 20 },
   emptyText: { fontSize: 18, textAlign: 'center', marginTop: 32, color: '#777' },
 
   totalBox: {
     backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 18,
     marginVertical: 16,
+    borderWidth: 1,
+    borderColor: '#EAE7F4',
   },
   totalText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
 
@@ -365,13 +372,28 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#EAE7F4',
+    borderRadius: 18,
+    padding: 15,
     backgroundColor: '#fff',
   },
 
   sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+  subjectList: { gap: 8 },
+  subjectListEmpty: { fontSize: 13, color: '#777' },
+  subjectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  subjectDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  subjectName: { flex: 1, fontSize: 13 },
+  subjectPoint: { fontSize: 12, fontWeight: 'bold', color: '#554a8e' },
 
   totalDurationBox: {
     marginTop: 24,
@@ -379,7 +401,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#e9e1ff',
-    borderRadius: 12,
+    borderRadius: 18,
     backgroundColor: '#fff',
     alignItems: 'center',
   },
@@ -391,7 +413,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#e9e1ff',
-    borderRadius: 12,
+    borderRadius: 18,
     backgroundColor: '#fff',
   },
   timeBreakdownTitle: { fontSize: 17, fontWeight: 'bold', color: '#554a8e', marginBottom: 8 },
